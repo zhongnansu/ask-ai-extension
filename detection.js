@@ -21,11 +21,12 @@ function detectContentType(text, anchorNode) {
   const hasBraces = /[{}]/.test(text);
   const hasSemicolons = /;/.test(text);
   const hasIndentation = /^\s{2,}/m.test(text);
-  const codeKeywords = (text.match(/\b(function|const|let|var|def|class|import|return|if|else|for|while)\b/g) || []).length;
+  const codeKeywords = (text.match(/\b(function|const|let|var|def|class|import|export|return|if|else|for|while|console|require|async|await|typeof)\b/g) || []).length;
 
   if ((hasBraces && hasSemicolons) ||
       (hasBraces && codeKeywords >= 2) ||
-      (hasIndentation && hasSemicolons && codeKeywords >= 1)) {
+      (hasIndentation && hasSemicolons && codeKeywords >= 1) ||
+      (hasSemicolons && codeKeywords >= 2)) {
     return 'code';
   }
 

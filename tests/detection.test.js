@@ -67,6 +67,21 @@ describe('detectContentType', () => {
       expect(detectContentType('hello world', anchorNode)).toBe('code');
     });
 
+    it('detects braceless JavaScript code with semicolons and keywords', () => {
+      const text = 'const x = [1,4]; console.log(x);';
+      expect(detectContentType(text, null)).toBe('code');
+    });
+
+    it('detects braceless multi-statement code', () => {
+      const text = 'let a = 10; let b = 20; return a + b;';
+      expect(detectContentType(text, null)).toBe('code');
+    });
+
+    it('detects braceless code with var and import keywords', () => {
+      const text = 'import fs from "fs"; var data = fs.readFileSync("file.txt");';
+      expect(detectContentType(text, null)).toBe('code');
+    });
+
     it('does NOT falsely detect prose that mentions programming terms', () => {
       const text = 'The function of this committee is to review import regulations and export policies.';
       expect(detectContentType(text, null)).not.toBe('code');
