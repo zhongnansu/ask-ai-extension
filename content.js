@@ -6,3 +6,14 @@ chrome.runtime.onMessage.addListener((msg) => {
     showPopup(msg.text, null);
   }
 });
+
+// Dismiss popup on click outside
+setTimeout(() => {
+  document.addEventListener('mousedown', (e) => {
+    if (popupContainer && !popupContainer.contains(e.target)) {
+      const trigger = document.getElementById('ask-ai-trigger');
+      if (trigger && trigger.contains(e.target)) return;
+      hidePopup();
+    }
+  });
+}, 100);
