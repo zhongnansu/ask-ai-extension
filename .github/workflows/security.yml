@@ -1,0 +1,202 @@
+name: Security Scanner
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        continue-on-error: true
+        run: |
+          echo "## npm Audit Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if npm audit --audit-level=moderate 2>&1 | tee /tmp/audit-output.txt; then
+            echo "AUDIT_PASS=true" >> "$GITHUB_ENV"
+            echo ":white_check_mark: No known vulnerabilities found." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "AUDIT_PASS=false" >> "$GITHUB_ENV"
+            echo ":warning: Vulnerabilities detected:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/audit-output.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Scan for dangerous code patterns
+        id: patterns
+        run: |
+          echo "## Dangerous Code Pattern Scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          FOUND_ISSUES=0
+          SOURCE_FILES=$(find . -maxdepth 1 -name '*.js' -not -name '*.test.js' -not -path './node_modules/*')
+
+          # --- eval() or new Function( ---
+          echo "### Checking for \`eval()\` and \`new Function(\`" >> "$GITHUB_STEP_SUMMARY"
+          EVAL_HITS=$(grep -rn 'eval(' $SOURCE_FILES 2>/dev/null || true)
+          FUNC_HITS=$(grep -rn 'new Function(' $SOURCE_FILES 2>/dev/null || true)
+          if [ -n "$EVAL_HITS" ] || [ -n "$FUNC_HITS" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":rotating_light: **Found dynamic code execution:**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$EVAL_HITS" >> "$GITHUB_STEP_SUMMARY"
+            echo "$FUNC_HITS" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            FOUND_ISSUES=$((FOUND_ISSUES + 1))
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":white_check_mark: No \`eval()\` or \`new Function(\` found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # --- innerHTML assignments ---
+          echo "### Checking for unsafe \`.innerHTML\` assignments" >> "$GITHUB_STEP_SUMMARY"
+          INNER_HITS=$(grep -rn '\.innerHTML\s*=' $SOURCE_FILES 2>/dev/null || true)
+          if [ -n "$INNER_HITS" ]; then
+            # Check if any innerHTML assignment lacks a preceding escapeAttr
+            UNSAFE_INNER=""
+            while IFS= read -r line; do
+              FILE=$(echo "$line" | cut -d: -f1)
+              LINENO_HIT=$(echo "$line" | cut -d: -f2)
+              # Check if escapeAttr appears in the same file within 10 lines before this line
+              START=$((LINENO_HIT - 10))
+              if [ "$START" -lt 1 ]; then START=1; fi
+              CONTEXT=$(sed -n "${START},${LINENO_HIT}p" "$FILE" 2>/dev/null || true)
+              if ! echo "$CONTEXT" | grep -q 'escapeAttr\|escape\|sanitize\|DOMPurify\|textContent'; then
+                UNSAFE_INNER="${UNSAFE_INNER}${line}\n"
+              fi
+            done <<< "$INNER_HITS"
+
+            if [ -n "$UNSAFE_INNER" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo ":warning: **Potentially unsafe \`.innerHTML\` assignments** (no sanitization found nearby):" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo -e "$UNSAFE_INNER" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              FOUND_ISSUES=$((FOUND_ISSUES + 1))
+            else
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo ":white_check_mark: All \`.innerHTML\` assignments appear to have sanitization nearby." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":white_check_mark: No \`.innerHTML\` assignments found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # --- document.write ---
+          echo "### Checking for \`document.write()\`" >> "$GITHUB_STEP_SUMMARY"
+          DOCWRITE_HITS=$(grep -rn 'document\.write(' $SOURCE_FILES 2>/dev/null || true)
+          if [ -n "$DOCWRITE_HITS" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":rotating_light: **Found \`document.write()\` usage:**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$DOCWRITE_HITS" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            FOUND_ISSUES=$((FOUND_ISSUES + 1))
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":white_check_mark: No \`document.write()\` found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # --- Hardcoded API keys / tokens ---
+          echo "### Checking for hardcoded API keys and tokens" >> "$GITHUB_STEP_SUMMARY"
+          # Patterns: sk-..., key-..., long hex strings assigned to variables, bearer tokens
+          KEY_PATTERNS='(sk-[a-zA-Z0-9]{20,}|key-[a-zA-Z0-9]{20,}|["'"'"'][a-fA-F0-9]{32,}["'"'"']|api[_-]?key\s*[:=]\s*["'"'"'][^"'"'"']+["'"'"']|token\s*[:=]\s*["'"'"'][^"'"'"']{20,}["'"'"']|bearer\s+[a-zA-Z0-9._\-]{20,})'
+          KEY_HITS=$(grep -rniE "$KEY_PATTERNS" $SOURCE_FILES 2>/dev/null || true)
+          if [ -n "$KEY_HITS" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":rotating_light: **Potential hardcoded secrets found:**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$KEY_HITS" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            FOUND_ISSUES=$((FOUND_ISSUES + 1))
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ":white_check_mark: No hardcoded API keys or tokens detected." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "PATTERN_ISSUES=$FOUND_ISSUES" >> "$GITHUB_ENV"
+
+      - name: Validate manifest permissions
+        id: manifest
+        run: |
+          echo "## Manifest Permission Audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            const perms = manifest.permissions || [];
+            const hostPerms = manifest.host_permissions || [];
+            const contentMatches = (manifest.content_scripts || []).flatMap(cs => cs.matches || []);
+            const allEntries = [...perms, ...hostPerms, ...contentMatches];
+
+            const warnings = [];
+
+            // Overly broad permissions
+            const broadPerms = ['<all_urls>', 'tabs', 'webRequest', 'webRequestBlocking', 'debugger', 'proxy'];
+            for (const p of perms) {
+              if (broadPerms.includes(p)) {
+                warnings.push('Permission \`' + p + '\` is broad — ensure it is necessary.');
+              }
+            }
+
+            // Host permissions
+            for (const h of hostPerms) {
+              if (h === '<all_urls>' || h === '*://*/*') {
+                warnings.push('Host permission \`' + h + '\` grants access to all sites.');
+              }
+            }
+
+            // Content script matches
+            for (const m of contentMatches) {
+              if (m === '<all_urls>') {
+                warnings.push('Content scripts match \`<all_urls>\` — runs on every page.');
+              }
+            }
+
+            if (warnings.length > 0) {
+              let md = ':warning: **Permission warnings:**\n\n';
+              for (const w of warnings) {
+                md += '- ' + w + '\n';
+              }
+              console.log(md);
+            } else {
+              console.log(':white_check_mark: Manifest permissions look reasonable.');
+            }
+          " >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Security summary
+        run: |
+          echo "---" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$AUDIT_PASS" = "true" ] && [ "$PATTERN_ISSUES" = "0" ]; then
+            echo ":white_check_mark: **All security checks passed.**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo ":warning: **Some security checks produced warnings — please review above.**" >> "$GITHUB_STEP_SUMMARY"
+          fi

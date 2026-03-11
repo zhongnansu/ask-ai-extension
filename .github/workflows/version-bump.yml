@@ -1,0 +1,153 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Calculate new version
+        id: version
+        run: |
+          CURRENT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version)")
+          echo "Current version: $CURRENT"
+
+          NEW=$(node -e "
+            const [major, minor, patch] = '${CURRENT}'.split('.').map(Number);
+            const bump = '${{ inputs.bump_type }}';
+            let newVersion;
+            if (bump === 'major') {
+              newVersion = (major + 1) + '.0.0';
+            } else if (bump === 'minor') {
+              newVersion = major + '.' + (minor + 1) + '.0';
+            } else {
+              newVersion = major + '.' + minor + '.' + (patch + 1);
+            }
+            console.log(newVersion);
+          ")
+          echo "New version: $NEW"
+
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            manifest.version = '${{ steps.version.outputs.new }}';
+            fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          "
+
+      - name: Update package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${{ steps.version.outputs.new }}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Build changelog since last tag
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tag found, listing recent commits"
+            CHANGES=$(git log --oneline -20 --no-decorate)
+          else
+            echo "Changes since $LAST_TAG"
+            CHANGES=$(git log --oneline --no-decorate "${LAST_TAG}..HEAD")
+          fi
+
+          # Write to file to preserve newlines safely
+          echo "$CHANGES" > /tmp/changelog.txt
+          echo "last_tag=${LAST_TAG:-none}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release branch and push
+        run: |
+          VERSION="${{ steps.version.outputs.new }}"
+          BRANCH="release/v${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add manifest.json package.json
+          git commit -m "chore: bump version to v${VERSION}"
+          git push origin "$BRANCH"
+
+      - name: Create pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const version = '${{ steps.version.outputs.new }}';
+            const currentVersion = '${{ steps.version.outputs.current }}';
+            const bumpType = '${{ inputs.bump_type }}';
+            const lastTag = '${{ steps.changelog.outputs.last_tag }}';
+            const branch = `release/v${version}`;
+
+            const changelog = fs.readFileSync('/tmp/changelog.txt', 'utf8').trim();
+
+            const changeLines = changelog.split('\n').map(l => `- ${l}`).join('\n');
+
+            const body = [
+              `## Release v${version}`,
+              '',
+              `**Bump type:** \`${bumpType}\``,
+              `**Previous version:** \`${currentVersion}\``,
+              `**New version:** \`${version}\``,
+              `**Last tag:** \`${lastTag}\``,
+              '',
+              '### Changes since last tag',
+              '',
+              changeLines,
+              '',
+              '---',
+              '',
+              '### Release Checklist',
+              '',
+              '- [ ] Version numbers correct in `manifest.json` and `package.json`',
+              '- [ ] All tests passing',
+              '- [ ] Changelog reviewed',
+              '- [ ] Manual smoke test completed',
+              '- [ ] Ready for Chrome Web Store',
+              '',
+              '---',
+              '',
+              `*Created by Version Bump workflow (\`${bumpType}\`)*`,
+            ].join('\n');
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Release v${version}`,
+              body,
+              head: branch,
+              base: 'main',
+            });
+
+            core.info(`Created PR #${pr.number}: ${pr.html_url}`);

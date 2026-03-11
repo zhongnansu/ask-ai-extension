@@ -1,0 +1,133 @@
+name: PR Preview Bot
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Checkout main branch manifest for comparison
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: __base
+          sparse-checkout: manifest.json
+          sparse-checkout-cone-mode: false
+
+      - name: Package extension
+        run: bash scripts/package.sh dist dev
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ask-ai-extension-pr-${{ github.event.pull_request.number }}
+          path: dist/ask-ai-extension-dev.zip
+          retention-days: 14
+
+      - name: Analyze and post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // --- Zip size ---
+            const zipPath = 'dist/ask-ai-extension-dev.zip';
+            const stats = fs.statSync(zipPath);
+            const sizeKB = (stats.size / 1024).toFixed(1);
+
+            // --- Permission diff ---
+            const prManifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            const baseManifest = JSON.parse(fs.readFileSync('__base/manifest.json', 'utf8'));
+
+            const prPerms = new Set(prManifest.permissions || []);
+            const basePerms = new Set(baseManifest.permissions || []);
+
+            const added = [...prPerms].filter(p => !basePerms.has(p));
+            const removed = [...basePerms].filter(p => !prPerms.has(p));
+
+            let permSection = '';
+            if (added.length > 0 || removed.length > 0) {
+              permSection += '### :warning: Permission Changes Detected\n\n';
+              if (added.length > 0) {
+                permSection += '**New permissions added:**\n';
+                for (const p of added) {
+                  permSection += '- `' + p + '` :rotating_light:\n';
+                }
+                permSection += '\n';
+              }
+              if (removed.length > 0) {
+                permSection += '**Permissions removed:**\n';
+                for (const p of removed) {
+                  permSection += '- `' + p + '`\n';
+                }
+                permSection += '\n';
+              }
+              permSection += '> Please review permission changes carefully before merging.\n\n';
+            } else {
+              permSection = '### Permissions\n\nNo permission changes detected. :white_check_mark:\n\n';
+            }
+
+            const runUrl = context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
+
+            const body = [
+              '## :package: PR Preview — Ask AI Extension',
+              '',
+              '**Version:** `' + prManifest.version + '`',
+              '**Zip size:** ' + sizeKB + ' KB',
+              '',
+              '[:arrow_down: Download artifact](' + runUrl + '#artifacts)',
+              '',
+              '---',
+              '',
+              permSection,
+              '---',
+              '',
+              '### Preview Checklist',
+              '',
+              'Before merging, manually test with the artifact above:',
+              '',
+              '- [ ] Load unpacked extension in `chrome://extensions` (developer mode)',
+              '- [ ] Select text on any webpage and verify the trigger button appears',
+              '- [ ] Click the trigger button and confirm the popup renders correctly',
+              '- [ ] Right-click selected text and verify context menu items are present',
+              '- [ ] Open a CSP-restricted page (e.g. `chrome://extensions`) and verify fallback works',
+              '- [ ] Check the DevTools console for errors',
+              '',
+              '---',
+              '*Updated by PR Preview Bot — [workflow run](' + runUrl + ')*',
+            ].join('\n');
+
+            // Find existing bot comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '## :package: PR Preview';
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

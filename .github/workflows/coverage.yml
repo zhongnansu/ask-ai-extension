@@ -1,0 +1,127 @@
+name: Code Coverage
+
+# Prerequisite: add @vitest/coverage-v8 to devDependencies in package.json:
+#   npm install --save-dev @vitest/coverage-v8
+# Without this package installed, the coverage step will fail.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run tests with coverage
+        id: coverage
+        continue-on-error: true
+        run: |
+          npx vitest run --coverage --coverage.reporter=json-summary --coverage.reporter=text 2>&1 | tee /tmp/coverage-text.txt
+
+      - name: Parse coverage and post comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const THRESHOLD = 70;
+
+            const coveragePath = 'coverage/coverage-summary.json';
+
+            let commentBody;
+
+            if (!fs.existsSync(coveragePath)) {
+              core.warning('Coverage summary not found. Is @vitest/coverage-v8 installed?');
+              commentBody = [
+                '## :bar_chart: Code Coverage Report',
+                '',
+                ':warning: **Coverage data not available.**',
+                '',
+                'Ensure `@vitest/coverage-v8` is listed in `devDependencies` in `package.json`:',
+                '```',
+                'npm install --save-dev @vitest/coverage-v8',
+                '```',
+              ].join('\n');
+            } else {
+              const summaryJson = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+
+              // Build per-file table rows
+              const rows = [];
+              for (const [filePath, data] of Object.entries(summaryJson)) {
+                if (filePath === 'total') continue;
+                const relPath = filePath.replace(process.cwd() + '/', '');
+                const pct = data.statements.pct;
+                const indicator = pct >= THRESHOLD ? ':green_circle:' : ':red_circle:';
+                rows.push(`| \`${relPath}\` | ${pct.toFixed(1)}% | ${indicator} |`);
+              }
+
+              // Overall
+              const overall = summaryJson.total;
+              const overallPct = overall.statements.pct;
+              const overallIndicator = overallPct >= THRESHOLD ? ':green_circle: PASS' : ':red_circle: FAIL';
+
+              const table = [
+                '| File | Coverage | Status |',
+                '|------|----------|--------|',
+                ...rows,
+                '| **Overall** | **' + overallPct.toFixed(1) + '%** | **' + overallIndicator + '** |',
+              ].join('\n');
+
+              commentBody = [
+                '## :bar_chart: Code Coverage Report',
+                '',
+                table,
+                '',
+                `**Threshold:** ${THRESHOLD}%`,
+                '',
+                overallPct >= THRESHOLD
+                  ? ':white_check_mark: Coverage meets the minimum threshold.'
+                  : ':x: Coverage is below the minimum threshold. Please add tests.',
+                '',
+                '---',
+                '*Updated by Code Coverage workflow*',
+              ].join('\n');
+
+              // Write to job summary as backup
+              core.summary.addRaw(commentBody);
+              await core.summary.write();
+            }
+
+            // Post or update PR comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '## :bar_chart: Code Coverage Report';
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+            }

@@ -1,0 +1,174 @@
+name: Permission Guard
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - manifest.json
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-permissions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Checkout main branch manifest
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: __base
+          sparse-checkout: manifest.json
+          sparse-checkout-cone-mode: false
+
+      - name: Compare permissions and post results
+        id: diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const prManifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            const baseManifest = JSON.parse(fs.readFileSync('__base/manifest.json', 'utf8'));
+
+            const prPerms = prManifest.permissions || [];
+            const basePerms = baseManifest.permissions || [];
+            const prHost = prManifest.host_permissions || [];
+            const baseHost = baseManifest.host_permissions || [];
+            const prOptional = prManifest.optional_permissions || [];
+            const baseOptional = baseManifest.optional_permissions || [];
+
+            const prAll = new Set([...prPerms, ...prHost, ...prOptional]);
+            const baseAll = new Set([...basePerms, ...baseHost, ...baseOptional]);
+
+            const added = [...prAll].filter(p => !baseAll.has(p));
+            const removed = [...baseAll].filter(p => !prAll.has(p));
+
+            // Well-known permission descriptions
+            const permDescriptions = {
+              'tabs': 'Read info about browser tabs (titles, URLs)',
+              '<all_urls>': 'Access to all URLs — very broad',
+              'webRequest': 'Observe and analyze network traffic',
+              'webRequestBlocking': 'Intercept and modify network requests',
+              'cookies': 'Read and modify cookies for any site',
+              'history': 'Read and modify browsing history',
+              'bookmarks': 'Read and modify bookmarks',
+              'downloads': 'Manage downloads',
+              'management': 'Manage other extensions',
+              'nativeMessaging': 'Communicate with native applications',
+              'debugger': 'Access the Chrome debugger protocol',
+              'proxy': 'Manage proxy settings',
+              'clipboardRead': 'Read the system clipboard',
+              'clipboardWrite': 'Write to the system clipboard',
+              'geolocation': 'Access geographic location',
+              'activeTab': 'Access the currently active tab when user invokes the extension',
+              'storage': 'Store and retrieve data in extension storage',
+              'contextMenus': 'Add items to the browser context menu',
+              'notifications': 'Display system notifications',
+              'alarms': 'Schedule periodic tasks',
+              'identity': 'Get OAuth2 tokens',
+              'scripting': 'Inject scripts into web pages',
+            };
+
+            if (added.length === 0) {
+              core.info('No new permissions added. Permission check passed.');
+              core.notice('No new permissions added. Permission check passed.');
+              return;
+            }
+
+            // Build warning comment
+            const lines = [
+              '## :shield: Permission Guard — New Permissions Detected',
+              '',
+              ':rotating_light: **This PR adds new extension permissions that require review.**',
+              '',
+              '### New permissions',
+              '',
+              '| Permission | Description |',
+              '|------------|-------------|',
+            ];
+
+            for (const p of added) {
+              const desc = permDescriptions[p] || 'No description available — please document why this is needed.';
+              lines.push(`| \`${p}\` | ${desc} |`);
+            }
+
+            lines.push('');
+
+            if (removed.length > 0) {
+              lines.push('### Removed permissions');
+              lines.push('');
+              for (const p of removed) {
+                lines.push(`- \`${p}\``);
+              }
+              lines.push('');
+            }
+
+            lines.push('---');
+            lines.push('');
+            lines.push('**Action required:** Please explain why each new permission is necessary in the PR description or a comment below.');
+            lines.push('A maintainer must review and approve permission changes before this PR can be merged.');
+            lines.push('');
+            lines.push('---');
+            lines.push('*Flagged by Permission Guard workflow*');
+
+            const body = lines.join('\n');
+
+            // Post or update comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '## :shield: Permission Guard';
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+            // Add needs-permission-review label
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'needs-permission-review',
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'needs-permission-review',
+                  color: 'e11d48',
+                  description: 'PR adds new extension permissions that need review',
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['needs-permission-review'],
+            });
+
+            // Fail the check
+            core.setFailed(`New permissions detected: ${added.join(', ')}. Review required before merge.`);
