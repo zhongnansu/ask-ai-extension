@@ -132,4 +132,19 @@ describe('message handler', () => {
     messageHandler({ type: 'UNKNOWN' });
     expect(mockTabsCreate).not.toHaveBeenCalled();
   });
+
+  it('rejects OPEN_AI_TAB with non-allowed URL', () => {
+    messageHandler({ type: 'OPEN_AI_TAB', url: 'https://evil.com/phishing' });
+    expect(mockTabsCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects COPY_AND_OPEN with non-allowed URL', () => {
+    messageHandler({ type: 'COPY_AND_OPEN', url: 'https://malicious.site/' });
+    expect(mockTabsCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects OPEN_AI_TAB with missing URL', () => {
+    messageHandler({ type: 'OPEN_AI_TAB' });
+    expect(mockTabsCreate).not.toHaveBeenCalled();
+  });
 });

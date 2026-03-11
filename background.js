@@ -41,12 +41,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// Allowed URL prefixes for AI tab requests
+const ALLOWED_URL_PREFIXES = ['https://chatgpt.com/', 'https://claude.ai/'];
+
+function isAllowedUrl(url) {
+  return typeof url === 'string' && ALLOWED_URL_PREFIXES.some(prefix => url.startsWith(prefix));
+}
+
 // Handle open-tab requests from content script
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.type === 'OPEN_AI_TAB') {
+  if (msg.type === 'OPEN_AI_TAB' && isAllowedUrl(msg.url)) {
     chrome.tabs.create({ url: msg.url });
   }
-  if (msg.type === 'COPY_AND_OPEN') {
+  if (msg.type === 'COPY_AND_OPEN' && isAllowedUrl(msg.url)) {
     chrome.tabs.create({ url: msg.url });
   }
 });
