@@ -23,13 +23,14 @@ describe('createTriggerButton', () => {
     expect(elements.length).toBe(1);
   });
 
-  it('button has correct styling (purple background, fixed position, high z-index)', () => {
+  it('button has correct styling (frosted glass indigo, fixed position, high z-index)', () => {
     createTriggerButton();
     const el = document.getElementById('ask-ai-trigger');
     expect(el.style.position).toBe('fixed');
     expect(el.style.zIndex).toBe('2147483647');
-    // jsdom normalizes hex to rgb
-    expect(el.style.background).toBe('rgb(79, 70, 229)');
+    // Semi-transparent indigo with blur
+    expect(el.style.background).toBe('rgba(79, 70, 229, 0.7)');
+    expect(el.style.backdropFilter).toBe('blur(12px)');
     expect(el.style.color).toBe('white');
     expect(el.style.cursor).toBe('pointer');
     expect(el.style.borderRadius).toBe('20px');

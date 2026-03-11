@@ -82,7 +82,10 @@ globalThis.getAIUrl = vi.fn((ai, prompt) => ({
 }));
 globalThis.hideTrigger = vi.fn();
 
-import { showPopup, hidePopup, escapeAttr, showToast, getPopupCSS } from '../popup.js';
+import {
+  showPopup, hidePopup, escapeAttr, showToast, getPopupCSS,
+  getBadgeConfig, getTypeLabel, detectPageTheme, BADGE_CONFIG,
+} from '../popup.js';
 
 function mockSelection(text) {
   const range = {
@@ -139,9 +142,43 @@ describe('getPopupCSS', () => {
     expect(css).toContain('.context-toggle');
   });
 
-  it('uses the dark theme background color', () => {
+  it('contains frosted glass backdrop-filter', () => {
     const css = getPopupCSS();
-    expect(css).toContain('#1e1e2e');
+    expect(css).toContain('backdrop-filter');
+    expect(css).toContain('blur(16px)');
+    expect(css).toContain('saturate(180%)');
+  });
+
+  it('contains dark mode background color', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('rgba(15, 15, 25, 0.72)');
+  });
+
+  it('contains light mode background color', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('rgba(255, 255, 255, 0.68)');
+  });
+
+  it('contains fallback for no backdrop-filter support', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('@supports not');
+    expect(css).toContain('var(--bg-solid)');
+  });
+
+  it('contains prefers-reduced-motion media query', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('prefers-reduced-motion');
+  });
+
+  it('contains popup scale-in animation', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('popupScaleIn');
+    expect(css).toContain('0.15s ease-out');
+  });
+
+  it('contains chip bounce animation', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('chipBounce');
   });
 
   it('uses ChatGPT brand color', () => {
@@ -153,6 +190,101 @@ describe('getPopupCSS', () => {
     const css = getPopupCSS();
     expect(css).toContain('#d97706');
   });
+
+  it('contains text preview styles', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('.text-preview');
+    expect(css).toContain('.detection-badge');
+    expect(css).toContain('.char-count');
+  });
+
+  it('contains override dropdown styles', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('.override-dropdown');
+    expect(css).toContain('.override-option');
+  });
+
+  it('contains collapsible more presets styles', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('.more-presets-toggle');
+    expect(css).toContain('.more-presets-content');
+  });
+
+  it('contains info tooltip styles', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('.info-tooltip');
+    expect(css).toContain('.info-tooltip-trigger');
+  });
+
+  it('contains focus-visible styles for accessibility', () => {
+    const css = getPopupCSS();
+    expect(css).toContain('focus-visible');
+  });
+
+  it('send button stays fully opaque (no glass)', () => {
+    const css = getPopupCSS();
+    // Send button uses solid background colors, not transparent
+    expect(css).toContain('.send-btn.chatgpt { background: #10a37f; }');
+    expect(css).toContain('.send-btn.claude { background: #d97706; }');
+  });
+});
+
+describe('BADGE_CONFIG', () => {
+  it('has configs for all 8 content types', () => {
+    const types = ['code', 'foreign', 'error', 'email', 'data', 'math', 'long', 'default'];
+    for (const type of types) {
+      expect(BADGE_CONFIG[type]).toBeDefined();
+      expect(BADGE_CONFIG[type].icon).toBeDefined();
+      expect(BADGE_CONFIG[type].color).toBeDefined();
+      expect(BADGE_CONFIG[type].label).toBeDefined();
+    }
+  });
+
+  it('uses correct colors per spec', () => {
+    expect(BADGE_CONFIG.code.color).toBe('#3B82F6');     // Blue
+    expect(BADGE_CONFIG.foreign.color).toBe('#8B5CF6');  // Purple
+    expect(BADGE_CONFIG.error.color).toBe('#EF4444');    // Red
+    expect(BADGE_CONFIG.email.color).toBe('#F59E0B');    // Amber
+    expect(BADGE_CONFIG.data.color).toBe('#14B8A6');     // Teal
+    expect(BADGE_CONFIG.math.color).toBe('#6366F1');     // Indigo
+    expect(BADGE_CONFIG.long.color).toBe('#6B7280');     // Gray
+  });
+});
+
+describe('getBadgeConfig', () => {
+  it('returns base badge with "detected" suffix for type without subType', () => {
+    const badge = getBadgeConfig('code', null);
+    expect(badge.label).toBe('Code detected');
+    expect(badge.color).toBe('#3B82F6');
+  });
+
+  it('returns sub-type-specific label when subType provided', () => {
+    const badge = getBadgeConfig('code', 'javascript');
+    expect(badge.label).toBe('Javascript detected');
+  });
+
+  it('returns foreign sub-type label', () => {
+    const badge = getBadgeConfig('foreign', 'japanese');
+    expect(badge.label).toBe('Japanese detected');
+  });
+
+  it('falls back to default for unknown type', () => {
+    const badge = getBadgeConfig('unknown', null);
+    expect(badge.color).toBe('#6B7280');
+  });
+});
+
+describe('getTypeLabel', () => {
+  it('returns capitalized sub-type when provided', () => {
+    expect(getTypeLabel('code', 'javascript')).toBe('Javascript');
+    expect(getTypeLabel('foreign', 'korean')).toBe('Korean');
+  });
+
+  it('returns generic label when no sub-type', () => {
+    expect(getTypeLabel('code', null)).toBe('Code');
+    expect(getTypeLabel('error', null)).toBe('Error');
+    expect(getTypeLabel('default', null)).toBe('Text');
+  });
 });
 
 describe('showPopup and hidePopup', () => {
@@ -160,7 +292,6 @@ describe('showPopup and hidePopup', () => {
     document.body.innerHTML = '';
     mockSelection('test text');
     vi.clearAllMocks();
-    // Reset chrome storage mock to return defaults
     chrome.storage.local.get.mockImplementation((keys, cb) => cb({}));
     detectContentType.mockReturnValue({ type: 'default', subType: null, confidence: 1.0, wordCount: 2, charCount: 10 });
   });
@@ -221,7 +352,6 @@ describe('showPopup and hidePopup', () => {
   it('loads Claude as currentAI when stored preference is claude', () => {
     chrome.storage.local.get.mockImplementation((keys, cb) => cb({ lastAI: 'claude' }));
     showPopup('hello', null);
-    // The chrome.storage.local.get was called, which sets up claude as active
     expect(chrome.storage.local.get).toHaveBeenCalled();
   });
 
@@ -236,17 +366,21 @@ describe('showPopup and hidePopup', () => {
     showPopup('some foreign text', null);
     expect(getAllPresetsForType).toHaveBeenCalledWith('foreign', 'japanese');
   });
+
+  it('passes subType to getSuggestedPresetsForType', () => {
+    detectContentType.mockReturnValue({ type: 'code', subType: 'python', confidence: 0.9, wordCount: 5, charCount: 30 });
+    showPopup('def foo():', null);
+    expect(getSuggestedPresetsForType).toHaveBeenCalledWith('code', 'python');
+  });
 });
 
 describe('showToast', () => {
   it('appends a toast element to the popup', () => {
-    // Create a mock shadow-like structure
     const container = document.createElement('div');
     const popup = document.createElement('div');
     popup.className = 'popup';
     container.appendChild(popup);
 
-    // showToast uses shadow.querySelector('.popup')
     showToast(container, 'Test message');
     const toast = popup.querySelector('.toast');
     expect(toast).not.toBeNull();
@@ -266,20 +400,14 @@ describe('showToast', () => {
 });
 
 describe('getAllPresetsForType integration', () => {
-  // These tests verify the real getAllPresetsForType logic works correctly
-  // with the PRESETS and COMMON_PRESETS data structures
-
   it('returns type-specific all presets plus deduplicated common presets for code', () => {
     const result = getAllPresetsForType('code');
     const labels = result.map(p => p.label);
-    // Should include code-specific "all" presets
     expect(labels).toContain('Add types');
     expect(labels).toContain('Write tests');
-    // Should include common presets not already in suggested
     expect(labels).toContain('Translate');
     expect(labels).toContain('Rewrite');
     expect(labels).toContain('Expand');
-    // Should NOT include presets already in suggested
     expect(labels).not.toContain('Explain code');
     expect(labels).not.toContain('Debug this');
     expect(labels).not.toContain('Optimize');
@@ -288,9 +416,7 @@ describe('getAllPresetsForType integration', () => {
   it('returns only deduplicated common presets for default type', () => {
     const result = getAllPresetsForType('default');
     const labels = result.map(p => p.label);
-    // "Summarize" is in suggested, so should be excluded from common
     expect(labels).not.toContain('Explain simply');
-    // These common presets should be included
     expect(labels).toContain('Explain');
     expect(labels).toContain('Translate');
     expect(labels).toContain('Rewrite');
@@ -300,10 +426,8 @@ describe('getAllPresetsForType integration', () => {
   it('returns deduplicated common presets for foreign type', () => {
     const result = getAllPresetsForType('foreign');
     const labels = result.map(p => p.label);
-    // "Translate" and "Explain" are in suggested for foreign, so excluded
     expect(labels).not.toContain('Translate');
     expect(labels).not.toContain('Explain');
-    // Others should be present
     expect(labels).toContain('Summarize');
     expect(labels).toContain('Rewrite');
     expect(labels).toContain('Expand');

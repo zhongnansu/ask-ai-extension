@@ -24,7 +24,9 @@ function createTriggerButton() {
   Object.assign(triggerButton.style, {
     position: 'fixed',
     zIndex: '2147483647',
-    background: '#4f46e5',
+    background: 'rgba(79, 70, 229, 0.7)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
     color: 'white',
     padding: '5px 12px',
     borderRadius: '20px',
@@ -33,6 +35,7 @@ function createTriggerButton() {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     cursor: 'pointer',
     boxShadow: '0 4px 15px rgba(79,70,229,0.4)',
+    border: '1px solid rgba(255,255,255,0.15)',
     display: 'none',
     userSelect: 'none',
     lineHeight: '1',

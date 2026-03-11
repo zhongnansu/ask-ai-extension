@@ -23,9 +23,19 @@ globalThis.PRESETS = {
       { label: 'Summarize', instruction: 'Summarize the following' },
     ],
     all: []
-  }
+  },
+  code: {
+    suggested: [
+      { label: 'Explain code', instruction: 'Explain the following code' },
+    ],
+    all: []
+  },
 };
 globalThis.COMMON_PRESETS = [];
+globalThis.BADGE_CONFIG = {
+  code: { icon: '\u27E8/\u27E9', color: '#3B82F6', label: 'Code' },
+  default: { icon: '\u2726', color: '#6B7280', label: 'Text selected' },
+};
 globalThis.getSuggestedPresetsForType = vi.fn((contentType, subType) => {
   return PRESETS[contentType]?.suggested || [];
 });
@@ -40,7 +50,7 @@ globalThis.getAIUrl = vi.fn((ai, prompt) => ({
 }));
 globalThis.hideTrigger = vi.fn();
 
-import { wirePopupEvents, hidePopup } from '../popup.js';
+import { wirePopupEvents, hidePopup, escapeAttr } from '../popup.js';
 
 /**
  * Build a DOM structure that mimics what popup.js renders inside the shadow root.
@@ -53,32 +63,58 @@ function createMockPopupDOM() {
         <span class="title">Ask AI</span>
         <button class="close-btn">&times;</button>
       </div>
+      <div class="text-preview">
+        <div class="preview-text">"test text"</div>
+        <div class="preview-meta">
+          <span class="char-count">10 chars</span>
+          <span class="detection-badge" style="background:#6B728022;color:#6B7280">
+            <span class="badge-icon">\u2726</span>
+            <span class="badge-label">Text selected detected</span>
+            <button class="badge-dismiss">\u2715</button>
+          </span>
+        </div>
+        <div class="override-dropdown">
+          <button class="override-option" data-type="code"><span>\u27E8/\u27E9</span> Code</button>
+        </div>
+      </div>
       <div class="ai-selector">
         <button class="ai-btn chatgpt active" data-ai="chatgpt">ChatGPT</button>
         <button class="ai-btn claude" data-ai="claude">Claude</button>
       </div>
       <div class="preset-section">
+        <div class="preset-label suggested-label">Suggested for Text</div>
         <div class="preset-chips suggested">
           <button class="chip suggested-chip" data-instruction="Summarize the following">Summarize</button>
         </div>
       </div>
       <div class="preset-section">
-        <div class="preset-chips">
-          <button class="chip" data-instruction="Explain the following">Explain</button>
-          <button class="chip" data-instruction="Translate the following">Translate</button>
+        <button class="more-presets-toggle">
+          <span class="toggle-text">More presets</span>
+          <span class="arrow">\u25BE</span>
+        </button>
+        <div class="more-presets-content">
+          <div class="preset-chips more-presets-chips">
+            <button class="chip" data-instruction="Explain the following">Explain</button>
+            <button class="chip" data-instruction="Translate the following">Translate</button>
+          </div>
         </div>
       </div>
       <div class="custom-input-wrap">
         <input type="text" class="custom-input" placeholder="Or type a custom instruction..." />
       </div>
       <div class="context-toggle">
-        <span class="context-label">Include page context</span>
+        <div class="context-label-wrap">
+          <span class="context-label">Include page context</span>
+          <span class="info-tooltip-trigger">i
+            <span class="info-tooltip">Sends the page title and URL...</span>
+          </span>
+        </div>
         <label class="switch">
           <input type="checkbox" class="context-checkbox" checked />
           <span class="slider"></span>
         </label>
       </div>
-      <button class="send-btn chatgpt">Send to ChatGPT →</button>
+      <button class="send-btn chatgpt">Send to ChatGPT \u2192</button>
     </div>
   `;
   return container;
@@ -204,6 +240,52 @@ describe('wirePopupEvents', () => {
     });
   });
 
+  describe('more presets toggle', () => {
+    it('toggles more-presets-content visibility on click', () => {
+      const toggle = shadow.querySelector('.more-presets-toggle');
+      const content = shadow.querySelector('.more-presets-content');
+
+      expect(content.classList.contains('expanded')).toBe(false);
+      toggle.click();
+      expect(content.classList.contains('expanded')).toBe(true);
+      toggle.click();
+      expect(content.classList.contains('expanded')).toBe(false);
+    });
+
+    it('updates toggle text when expanded', () => {
+      const toggle = shadow.querySelector('.more-presets-toggle');
+      const toggleText = toggle.querySelector('.toggle-text');
+
+      toggle.click();
+      expect(toggleText.textContent).toBe('Fewer presets');
+      toggle.click();
+      expect(toggleText.textContent).toBe('More presets');
+    });
+  });
+
+  describe('detection override dropdown', () => {
+    it('opens dropdown when badge dismiss is clicked', () => {
+      const dismiss = shadow.querySelector('.badge-dismiss');
+      const dropdown = shadow.querySelector('.override-dropdown');
+
+      expect(dropdown.classList.contains('open')).toBe(false);
+      dismiss.click();
+      expect(dropdown.classList.contains('open')).toBe(true);
+    });
+
+    it('closes dropdown when clicking elsewhere in popup', () => {
+      const dismiss = shadow.querySelector('.badge-dismiss');
+      const dropdown = shadow.querySelector('.override-dropdown');
+      const popup = shadow.querySelector('.popup');
+
+      dismiss.click();
+      expect(dropdown.classList.contains('open')).toBe(true);
+
+      popup.click();
+      expect(dropdown.classList.contains('open')).toBe(false);
+    });
+  });
+
   describe('close button', () => {
     it('has a click handler attached to close button', () => {
       const closeBtn = shadow.querySelector('.close-btn');
@@ -220,7 +302,6 @@ describe('wirePopupEvents', () => {
     });
 
     it('does NOT trigger for other keys', () => {
-      // Escape handler should only react to Escape key
       expect(() => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       }).not.toThrow();
@@ -284,8 +365,11 @@ describe('wirePopupEvents', () => {
       expect(buildPrompt).toHaveBeenCalledWith(selectedText, '', false);
     });
 
-    it('calls hidePopup after sending (does not throw)', () => {
-      expect(() => shadow.querySelector('.send-btn').click()).not.toThrow();
+    it('shows "Sent" state after sending', () => {
+      shadow.querySelector('.send-btn').click();
+      const sendBtn = shadow.querySelector('.send-btn');
+      expect(sendBtn.textContent).toContain('Sent');
+      expect(sendBtn.classList.contains('sent')).toBe(true);
     });
   });
 
@@ -319,6 +403,16 @@ describe('wirePopupEvents', () => {
           type: 'COPY_AND_OPEN',
           url: 'https://chatgpt.com/',
         });
+      });
+    });
+
+    it('shows "Sent" state after fallback copy', async () => {
+      shadow.querySelector('.send-btn').click();
+
+      await vi.waitFor(() => {
+        const sendBtn = shadow.querySelector('.send-btn');
+        expect(sendBtn.classList.contains('sent')).toBe(true);
+        expect(sendBtn.textContent).toContain('Sent');
       });
     });
   });
