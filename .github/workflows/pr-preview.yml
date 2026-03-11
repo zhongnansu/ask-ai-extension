@@ -24,7 +24,18 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Package extension
-        run: bash scripts/package.sh dist dev
+        run: |
+          mkdir -p dist
+          zip -r dist/ask-ai-extension-dev.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            detection.js \
+            presets.js \
+            prompt.js \
+            trigger.js \
+            popup.js \
+            icons/
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v4
