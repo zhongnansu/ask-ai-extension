@@ -78,7 +78,7 @@ document.addEventListener('mouseup', (e) => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
-    if (text.length >= 3) {
+    if (text.length >= 3 && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       showTrigger(rect);
@@ -96,7 +96,7 @@ window.addEventListener('scroll', () => {
   scrollTimer = setTimeout(() => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
-    if (text.length >= 3) {
+    if (text.length >= 3 && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       showTrigger(rect);
