@@ -38,17 +38,8 @@ jobs:
 
       - name: Package extension
         run: |
-          mkdir -p dist
-          zip -r dist/ask-ai-extension-${GITHUB_REF#refs/tags/}.zip \
-            manifest.json \
-            background.js \
-            content.js \
-            detection.js \
-            presets.js \
-            prompt.js \
-            trigger.js \
-            popup.js \
-            icons/
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          bash scripts/package.sh dist "v${TAG_VERSION}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -64,24 +55,30 @@ jobs:
           CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
         run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+
           # Get access token
-          ACCESS_TOKEN=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+          ACCESS_TOKEN=$(curl -sf -X POST "https://oauth2.googleapis.com/token" \
             -d "client_id=$CHROME_CLIENT_ID" \
             -d "client_secret=$CHROME_CLIENT_SECRET" \
             -d "refresh_token=$CHROME_REFRESH_TOKEN" \
             -d "grant_type=refresh_token" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).access_token))")
 
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "undefined" ]; then
+            echo "Failed to obtain access token"; exit 1
+          fi
+
           # Upload zip
-          curl -s -X PUT \
+          curl -sf -X PUT \
             "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID" \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             -H "x-goog-api-version: 2" \
-            -T dist/ask-ai-extension-${GITHUB_REF#refs/tags/}.zip
+            -T dist/ask-ai-extension-v${TAG_VERSION}.zip || { echo "Upload failed"; exit 1; }
 
           # Publish
-          curl -s -X POST \
+          curl -sf -X POST \
             "https://www.googleapis.com/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID/publish" \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
-            -H "x-goog-api-version: 2"
+            -H "x-goog-api-version: 2" || { echo "Publish failed"; exit 1; }
 
           echo "Published to Chrome Web Store"

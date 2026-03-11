@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -50,20 +53,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Package extension
-        run: |
-          mkdir -p dist
-          zip -r dist/ask-ai-extension.zip \
-            manifest.json \
-            background.js \
-            content.js \
-            detection.js \
-            presets.js \
-            prompt.js \
-            trigger.js \
-            popup.js \
-            icons/
+        run: bash scripts/package.sh dist dev
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ask-ai-extension
-          path: dist/ask-ai-extension.zip
+          path: dist/ask-ai-extension-dev.zip
