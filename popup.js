@@ -336,8 +336,14 @@ function showPopup(selectedText, anchorNode) {
   hidePopup();
   hideTrigger();
 
-  const contentType = detectContentType(selectedText, anchorNode);
-  const presetConfig = PRESETS[contentType];
+  const detection = detectContentType(selectedText, anchorNode);
+  const contentType = detection.type;
+  const subType = detection.subType;
+  const presetConfig = {
+    suggested: (typeof getSuggestedPresetsForType === 'function')
+      ? getSuggestedPresetsForType(contentType, subType)
+      : PRESETS[contentType].suggested,
+  };
 
   // Create container + shadow root
   popupContainer = document.createElement('div');
@@ -363,7 +369,7 @@ function showPopup(selectedText, anchorNode) {
   }
 
   // Build preset chip HTML
-  const allPresets = getAllPresetsForType(contentType);
+  const allPresets = getAllPresetsForType(contentType, subType);
 
   // Load saved preferences then render
   chrome.storage.local.get(['lastAI', 'pageContext'], (stored) => {

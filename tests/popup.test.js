@@ -16,7 +16,7 @@ globalThis.chrome = {
 };
 
 // Mock dependencies that popup.js expects in global scope
-globalThis.detectContentType = vi.fn(() => 'default');
+globalThis.detectContentType = vi.fn(() => ({ type: 'default', subType: null, confidence: 1.0, wordCount: 2, charCount: 10 }));
 globalThis.PRESETS = {
   code: {
     suggested: [
@@ -60,7 +60,10 @@ globalThis.COMMON_PRESETS = [
   { label: 'Expand', instruction: 'Expand on the following' },
   { label: 'Key points', instruction: 'Extract the key points from the following' },
 ];
-globalThis.getAllPresetsForType = vi.fn((contentType) => {
+globalThis.getSuggestedPresetsForType = vi.fn((contentType, subType) => {
+  return PRESETS[contentType].suggested;
+});
+globalThis.getAllPresetsForType = vi.fn((contentType, subType) => {
   const typeAll = PRESETS[contentType].all || [];
   const labels = new Set([
     ...PRESETS[contentType].suggested.map(p => p.label),
@@ -159,7 +162,7 @@ describe('showPopup and hidePopup', () => {
     vi.clearAllMocks();
     // Reset chrome storage mock to return defaults
     chrome.storage.local.get.mockImplementation((keys, cb) => cb({}));
-    detectContentType.mockReturnValue('default');
+    detectContentType.mockReturnValue({ type: 'default', subType: null, confidence: 1.0, wordCount: 2, charCount: 10 });
   });
 
   afterEach(() => {
@@ -223,15 +226,15 @@ describe('showPopup and hidePopup', () => {
   });
 
   it('uses code presets when detectContentType returns code', () => {
-    detectContentType.mockReturnValue('code');
+    detectContentType.mockReturnValue({ type: 'code', subType: 'javascript', confidence: 0.9, wordCount: 3, charCount: 20 });
     showPopup('function test() {}', null);
-    expect(getAllPresetsForType).toHaveBeenCalledWith('code');
+    expect(getAllPresetsForType).toHaveBeenCalledWith('code', 'javascript');
   });
 
   it('uses foreign presets when detectContentType returns foreign', () => {
-    detectContentType.mockReturnValue('foreign');
+    detectContentType.mockReturnValue({ type: 'foreign', subType: 'japanese', confidence: 0.85, wordCount: 3, charCount: 17 });
     showPopup('some foreign text', null);
-    expect(getAllPresetsForType).toHaveBeenCalledWith('foreign');
+    expect(getAllPresetsForType).toHaveBeenCalledWith('foreign', 'japanese');
   });
 });
 

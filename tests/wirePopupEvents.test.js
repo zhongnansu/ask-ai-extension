@@ -16,7 +16,7 @@ globalThis.chrome = {
 };
 
 // Mock dependencies
-globalThis.detectContentType = vi.fn(() => 'default');
+globalThis.detectContentType = vi.fn(() => ({ type: 'default', subType: null, confidence: 1.0, wordCount: 2, charCount: 10 }));
 globalThis.PRESETS = {
   default: {
     suggested: [
@@ -26,6 +26,9 @@ globalThis.PRESETS = {
   }
 };
 globalThis.COMMON_PRESETS = [];
+globalThis.getSuggestedPresetsForType = vi.fn((contentType, subType) => {
+  return PRESETS[contentType]?.suggested || [];
+});
 globalThis.getAllPresetsForType = vi.fn(() => []);
 globalThis.buildPrompt = vi.fn((text, instruction, ctx) => {
   if (instruction) return `${instruction}:\n\n${text}`;
