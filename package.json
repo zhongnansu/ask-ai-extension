@@ -1,0 +1,13 @@
+{
+  "name": "ask-ai-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome extension to select text and send it to ChatGPT or Claude",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

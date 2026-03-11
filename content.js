@@ -1,6 +1,8 @@
-// Placeholder — will be built out in subsequent PRs
+// Glue script — wires context menu messages to popup
+// All modules loaded via manifest.json content_scripts share this scope
+
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'SHOW_POPUP') {
-    console.log('[Ask AI] Context menu triggered with text:', msg.text.substring(0, 50));
+    showPopup(msg.text, null);
   }
 });

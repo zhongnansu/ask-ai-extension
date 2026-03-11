@@ -9,7 +9,7 @@
   },
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["content.js"]
+    "js": ["detection.js", "presets.js", "prompt.js", "trigger.js", "popup.js", "content.js"]
   }],
   "icons": {
     "16": "icons/icon16.svg",
