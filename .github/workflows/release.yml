@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Validate version matches tag
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          MANIFEST_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version)")
+          PACKAGE_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)")
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) doesn't match manifest.json ($MANIFEST_VERSION)"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) doesn't match package.json ($PACKAGE_VERSION)"
+            exit 1
+          fi
+          echo "Version $TAG_VERSION validated"
+
+      - name: Package extension
+        run: |
+          mkdir -p dist
+          zip -r dist/ask-ai-extension-${GITHUB_REF#refs/tags/}.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            detection.js \
+            presets.js \
+            prompt.js \
+            trigger.js \
+            popup.js \
+            icons/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ask-ai-extension-*.zip
+          generate_release_notes: true
+
+      - name: Publish to Chrome Web Store
+        if: env.CHROME_CLIENT_ID != ''
+        env:
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+        run: |
+          # Get access token
+          ACCESS_TOKEN=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+            -d "client_id=$CHROME_CLIENT_ID" \
+            -d "client_secret=$CHROME_CLIENT_SECRET" \
+            -d "refresh_token=$CHROME_REFRESH_TOKEN" \
+            -d "grant_type=refresh_token" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).access_token))")
+
+          # Upload zip
+          curl -s -X PUT \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -T dist/ask-ai-extension-${GITHUB_REF#refs/tags/}.zip
+
+          # Publish
+          curl -s -X POST \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CHROME_EXTENSION_ID/publish" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2"
+
+          echo "Published to Chrome Web Store"
