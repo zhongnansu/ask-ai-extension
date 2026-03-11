@@ -1,5 +1,8 @@
 // Floating "Ask AI" trigger button on text selection
-// Implemented by Engineer B
+//
+// Dependencies (loaded via manifest.json content_scripts, shared global scope):
+// - showPopup(text, anchorNode) from popup.js
+// - popupContainer from popup.js
 
 /**
  * Shows a floating trigger button near text selection.
@@ -17,7 +20,7 @@ function createTriggerButton() {
 
   triggerButton = document.createElement('div');
   triggerButton.id = 'ask-ai-trigger';
-  triggerButton.innerHTML = '&#10022; Ask AI';
+  triggerButton.textContent = '✦ Ask AI';
   Object.assign(triggerButton.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -52,7 +55,10 @@ function createTriggerButton() {
 function showTrigger(rect) {
   createTriggerButton();
   triggerButton.style.display = 'block';
-  triggerButton.style.left = `${rect.right}px`;
+  // Clamp to viewport so button doesn't render off-screen
+  const buttonWidth = triggerButton.offsetWidth || 80;
+  const maxLeft = window.innerWidth - buttonWidth - 8;
+  triggerButton.style.left = `${Math.min(rect.right, maxLeft)}px`;
   triggerButton.style.top = `${Math.max(4, rect.top - 36)}px`;
 }
 
