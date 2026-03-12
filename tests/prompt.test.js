@@ -3,7 +3,7 @@ import { buildChatMessages, buildFollowUp, MAX_TEXT_LENGTH } from '../prompt.js'
 
 const SYSTEM_MSG = {
   role: 'system',
-  content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and wants you to help with it. Be concise and clear.',
+  content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and wants you to help with it. Be concise and clear. Always respond in the same language as the selected text.',
 };
 
 describe('MAX_TEXT_LENGTH', () => {

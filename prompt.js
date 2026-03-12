@@ -19,7 +19,7 @@ function buildChatMessages(selectedText, instruction, includePageContext) {
   // System message sets the assistant's role
   messages.push({
     role: 'system',
-    content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and wants you to help with it. Be concise and clear.',
+    content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and wants you to help with it. Be concise and clear. Always respond in the same language as the selected text.',
   });
 
   // Combine instruction + selected text in the user message so the model
