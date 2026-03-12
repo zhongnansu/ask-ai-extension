@@ -114,49 +114,27 @@ const CODE_SUBTYPE_PRESETS = {
 };
 
 // Sub-type specific preset overrides for foreign languages
+// Presets prioritize native-language actions (summarize, explain) over translation,
+// since users selecting text in their own language usually want responses in that language.
+// The system prompt instructs the AI to respond in the same language as the selected text.
+function buildForeignPresets(language, label) {
+  return {
+    suggested: [
+      { label: 'Summarize', instruction: 'Summarize the following' },
+      { label: 'Explain simply', instruction: 'Explain the following in simple terms' },
+      { label: `Translate to English`, instruction: `Translate the following ${language} text to English` },
+    ],
+  };
+}
+
 const FOREIGN_SUBTYPE_PRESETS = {
-  japanese: {
-    suggested: [
-      { label: 'Translate from Japanese', instruction: 'Translate the following Japanese text to English' },
-      { label: 'Explain', instruction: 'Explain the following Japanese text' },
-    ],
-  },
-  chinese: {
-    suggested: [
-      { label: 'Translate from Chinese', instruction: 'Translate the following Chinese text to English' },
-      { label: 'Explain', instruction: 'Explain the following Chinese text' },
-    ],
-  },
-  korean: {
-    suggested: [
-      { label: 'Translate from Korean', instruction: 'Translate the following Korean text to English' },
-      { label: 'Explain', instruction: 'Explain the following Korean text' },
-    ],
-  },
-  arabic: {
-    suggested: [
-      { label: 'Translate from Arabic', instruction: 'Translate the following Arabic text to English' },
-      { label: 'Explain', instruction: 'Explain the following Arabic text' },
-    ],
-  },
-  russian: {
-    suggested: [
-      { label: 'Translate from Russian', instruction: 'Translate the following Russian text to English' },
-      { label: 'Explain', instruction: 'Explain the following Russian text' },
-    ],
-  },
-  hindi: {
-    suggested: [
-      { label: 'Translate from Hindi', instruction: 'Translate the following Hindi text to English' },
-      { label: 'Explain', instruction: 'Explain the following Hindi text' },
-    ],
-  },
-  thai: {
-    suggested: [
-      { label: 'Translate from Thai', instruction: 'Translate the following Thai text to English' },
-      { label: 'Explain', instruction: 'Explain the following Thai text' },
-    ],
-  },
+  japanese: buildForeignPresets('Japanese'),
+  chinese: buildForeignPresets('Chinese'),
+  korean: buildForeignPresets('Korean'),
+  arabic: buildForeignPresets('Arabic'),
+  russian: buildForeignPresets('Russian'),
+  hindi: buildForeignPresets('Hindi'),
+  thai: buildForeignPresets('Thai'),
 };
 
 const PRESETS = {
