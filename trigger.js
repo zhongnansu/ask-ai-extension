@@ -26,10 +26,10 @@ function createTriggerButton() {
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
     color: 'white',
-    padding: '5px 12px',
+    padding: '4px 10px',
     borderRadius: '20px',
-    fontSize: '13px',
-    fontWeight: '600',
+    fontSize: '12px',
+    fontWeight: '500',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     cursor: 'pointer',
     boxShadow: '0 4px 15px rgba(79,70,229,0.4)',
@@ -200,8 +200,10 @@ function showTrigger(x, y) {
   const buttonHeight = triggerButton.offsetHeight || 28;
   const maxLeft = window.innerWidth - buttonWidth - 8;
   const maxTop = window.innerHeight - buttonHeight - 8;
-  triggerButton.style.left = `${Math.min(Math.max(8, x + 8), maxLeft)}px`;
-  triggerButton.style.top = `${Math.min(Math.max(4, y - 16), maxTop)}px`;
+  // Position below-right of cursor: close enough to click, but not blocking
+  // the selected text or surrounding content
+  triggerButton.style.left = `${Math.min(Math.max(8, x + 12), maxLeft)}px`;
+  triggerButton.style.top = `${Math.min(Math.max(4, y + 10), maxTop)}px`;
 }
 
 function hideTrigger() {

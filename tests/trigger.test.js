@@ -74,11 +74,11 @@ describe('showTrigger', () => {
     expect(el.style.display).toBe('block');
   });
 
-  it('positions with offset from cursor', () => {
+  it('positions below-right of cursor', () => {
     showTrigger(200, 100);
     const el = document.getElementById('dobby-ai-trigger');
-    expect(el.style.left).toBe('208px'); // x + 8
-    expect(el.style.top).toBe('84px'); // y - 16
+    expect(el.style.left).toBe('212px'); // x + 12
+    expect(el.style.top).toBe('110px'); // y + 10
   });
 
   it('clamps left position to prevent off-screen rendering', () => {
@@ -88,10 +88,11 @@ describe('showTrigger', () => {
     expect(parseInt(el.style.left)).toBeLessThanOrEqual(936);
   });
 
-  it('clamps top position to minimum of 4px', () => {
-    showTrigger(100, 10);
+  it('clamps top position to viewport bottom', () => {
+    showTrigger(100, 800);
     const el = document.getElementById('dobby-ai-trigger');
-    expect(el.style.top).toBe('4px'); // Math.max(4, 10 - 16) = 4
+    // maxTop = 768 - 28 - 8 = 732 (jsdom defaults innerHeight=768, offsetHeight fallback=28)
+    expect(parseInt(el.style.top)).toBeLessThanOrEqual(732);
   });
 });
 
