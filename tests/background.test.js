@@ -289,7 +289,8 @@ describe('chat-stream integration', () => {
         return Promise.resolve({ done: false, value: encoder.encode(chunks[i++]) });
       }
     })};
-    return { ok: true, status: 200, body };
+    const headers = new Map([['X-RateLimit-Remaining', '25']]);
+    return { ok: true, status: 200, body, headers: { get: (k) => headers.get(k) } };
   }
 
   beforeEach(() => {
@@ -312,7 +313,7 @@ describe('chat-stream integration', () => {
 
     await vi.waitFor(() => {
       expect(port.postMessage).toHaveBeenCalledWith({ type: 'token', text: 'Hi' });
-      expect(port.postMessage).toHaveBeenCalledWith({ type: 'done' });
+      expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'done', remaining: 25, usingOwnKey: false }));
     });
 
     // Verify it called proxy URL (not OpenAI directly)
@@ -335,7 +336,7 @@ describe('chat-stream integration', () => {
     await handler({ type: 'CHAT_REQUEST', messages: [{ role: 'user', content: 'test' }] });
 
     await vi.waitFor(() => {
-      expect(port.postMessage).toHaveBeenCalledWith({ type: 'done' });
+      expect(port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'done', remaining: null, usingOwnKey: true }));
     });
 
     const calledUrl = fetch.mock.calls[0][0];

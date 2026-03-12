@@ -20,7 +20,7 @@ function requestChat(messages, onToken, onDone, onError) {
         onToken(msg.text);
         break;
       case 'done':
-        onDone();
+        onDone({ remaining: msg.remaining, usingOwnKey: msg.usingOwnKey });
         port.disconnect();
         break;
       case 'error':

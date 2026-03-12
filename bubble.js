@@ -508,11 +508,17 @@ function startStreaming(shadow, messages) {
         }, 50);
       }
     },
-    () => {
+    (usageInfo) => {
       // Flush any pending render
       if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
       responseEl.innerHTML = renderMarkdown(responseText);
-      statusEl.textContent = '';
+      if (usageInfo && usageInfo.usingOwnKey) {
+        statusEl.textContent = 'your API key';
+      } else if (usageInfo && usageInfo.remaining != null) {
+        statusEl.textContent = `${usageInfo.remaining}/30 free`;
+      } else {
+        statusEl.textContent = '';
+      }
       cursorEl.classList.add('hidden');
       followUpInput.disabled = false;
       followUpInput.focus();

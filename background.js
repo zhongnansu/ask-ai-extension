@@ -144,11 +144,14 @@ chrome.runtime.onConnect.addListener((port) => {
         return;
       }
 
+      const usingOwnKey = !!stored.userApiKey;
+      const remaining = usingOwnKey ? null : parseInt(response.headers.get('X-RateLimit-Remaining')) || 0;
+
       const reader = response.body.getReader();
       for await (const token of parseSSEStream(reader)) {
         try { port.postMessage({ type: 'token', text: token }); } catch { break; }
       }
-      try { port.postMessage({ type: 'done' }); } catch {}
+      try { port.postMessage({ type: 'done', remaining, usingOwnKey }); } catch {}
     } catch (err) {
       if (err.name === 'AbortError') {
         try { port.postMessage({ type: 'error', code: 0, message: 'Request timed out' }); } catch {}
