@@ -68,41 +68,36 @@ describe('createTriggerButton', () => {
 });
 
 describe('showTrigger', () => {
-  it('makes button visible and positions it', () => {
-    const rect = { right: 200, top: 100 };
-    showTrigger(rect);
+  it('makes button visible and positions it near cursor', () => {
+    showTrigger(200, 100);
     const el = document.getElementById('dobby-ai-trigger');
     expect(el.style.display).toBe('block');
   });
 
-  // Preserved from existing tests
-  it('positions correctly', () => {
-    const rect = { right: 200, top: 100 };
-    showTrigger(rect);
+  it('positions with offset from cursor', () => {
+    showTrigger(200, 100);
     const el = document.getElementById('dobby-ai-trigger');
-    expect(el.style.left).toBe('200px');
-    expect(el.style.top).toBe('64px'); // Math.max(4, 100 - 36)
+    expect(el.style.left).toBe('208px'); // x + 8
+    expect(el.style.top).toBe('84px'); // y - 16
   });
 
   it('clamps left position to prevent off-screen rendering', () => {
-    const rect = { right: 1020, top: 100 };
-    showTrigger(rect);
+    showTrigger(1020, 100);
     const el = document.getElementById('dobby-ai-trigger');
     // maxLeft = 1024 - 80 - 8 = 936 (jsdom defaults innerWidth=1024, offsetWidth fallback=80)
     expect(parseInt(el.style.left)).toBeLessThanOrEqual(936);
   });
 
   it('clamps top position to minimum of 4px', () => {
-    const rect = { right: 100, top: 20 };
-    showTrigger(rect);
+    showTrigger(100, 10);
     const el = document.getElementById('dobby-ai-trigger');
-    expect(el.style.top).toBe('4px');
+    expect(el.style.top).toBe('4px'); // Math.max(4, 10 - 16) = 4
   });
 });
 
 describe('hideTrigger', () => {
   it('sets display to none', () => {
-    showTrigger({ right: 100, top: 100 });
+    showTrigger(100, 100);
     hideTrigger();
     const el = document.getElementById('dobby-ai-trigger');
     expect(el.style.display).toBe('none');
@@ -153,7 +148,7 @@ describe('event-driven behavior', () => {
 
   it('click-away hides trigger', () => {
     createTriggerButton();
-    showTrigger({ right: 200, top: 100 });
+    showTrigger(200, 100);
 
     const btn = document.getElementById('dobby-ai-trigger');
     expect(btn.style.display).toBe('block');
@@ -180,7 +175,7 @@ describe('preset selector', () => {
       rangeCount: 1,
       getRangeAt: () => ({ getBoundingClientRect: () => ({ top: 100, right: 200, bottom: 120, left: 100 }) }),
     }));
-    showTrigger({ right: 200, top: 100 });
+    showTrigger(200, 100);
     const btn = document.getElementById('dobby-ai-trigger');
     btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     const presets = document.getElementById('dobby-ai-presets');

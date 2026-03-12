@@ -193,13 +193,15 @@ function hidePresetSelector() {
   presetSelector = null;
 }
 
-function showTrigger(rect) {
+function showTrigger(x, y) {
   createTriggerButton();
   triggerButton.style.display = 'block';
   const buttonWidth = triggerButton.offsetWidth || 80;
+  const buttonHeight = triggerButton.offsetHeight || 28;
   const maxLeft = window.innerWidth - buttonWidth - 8;
-  triggerButton.style.left = `${Math.min(rect.right, maxLeft)}px`;
-  triggerButton.style.top = `${Math.max(4, rect.top - 36)}px`;
+  const maxTop = window.innerHeight - buttonHeight - 8;
+  triggerButton.style.left = `${Math.min(Math.max(8, x + 8), maxLeft)}px`;
+  triggerButton.style.top = `${Math.min(Math.max(4, y - 16), maxTop)}px`;
 }
 
 function hideTrigger() {
@@ -218,14 +220,14 @@ document.addEventListener('mouseup', (e) => {
     if (bc?.contains(e.target)) return;
   }
 
+  const cursorX = e.clientX;
+  const cursorY = e.clientY;
   setTimeout(() => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
-    if (text.length >= 3 && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      showTrigger(rect);
+    if (text.length >= 3) {
+      showTrigger(cursorX, cursorY);
     } else {
       hideTrigger();
     }
@@ -243,7 +245,7 @@ window.addEventListener('scroll', () => {
     if (text.length >= 3 && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      showTrigger(rect);
+      showTrigger(rect.right, rect.top);
     }
   }, 150);
 }, true);
