@@ -51,6 +51,12 @@ saveBtn.addEventListener('click', async () => {
     return;
   }
 
+  if (key.startsWith('sk-ant-')) {
+    keyStatus.textContent = 'Anthropic (Claude) key support coming soon — please use an OpenAI key for now';
+    keyStatus.className = 'status error';
+    return;
+  }
+
   saveBtn.disabled = true;
   keyStatus.textContent = 'Validating...';
   keyStatus.className = 'status info';

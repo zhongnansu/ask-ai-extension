@@ -216,29 +216,6 @@ function getStyles(theme) {
       cursor: pointer;
       text-decoration: underline;
     }
-    .api-key-form {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .api-key-form input {
-      flex: 1;
-      padding: 6px 8px;
-      border: 1px solid ${isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'};
-      border-radius: 6px;
-      font-size: 12px;
-      background: transparent;
-      color: inherit;
-    }
-    .api-key-form button {
-      background: ${isDark ? '#a78bfa' : '#7c3aed'};
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-    }
     .history-panel { padding: 4px 0; }
     .history-entry {
       padding: 8px 0;

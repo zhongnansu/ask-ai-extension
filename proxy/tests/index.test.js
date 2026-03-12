@@ -208,3 +208,54 @@ describe('POST /chat', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('dev bypass token', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    validatePayload.mockReturnValue({ valid: true });
+    verifyHmac.mockResolvedValue(true);
+    checkRateLimit.mockResolvedValue({ allowed: true, remaining: 29 });
+    incrementCounters.mockResolvedValue();
+    createChatStream.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: new ReadableStream(),
+    });
+  });
+
+  it('skips rate limiting when X-Dev-Token matches DEV_BYPASS_TOKEN', async () => {
+    const req = makeRequest('/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], signature: 'x', timestamp: 1 },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': 'my-secret-token' },
+    });
+    const res = await handler.fetch(req, makeEnv({ DEV_BYPASS_TOKEN: 'my-secret-token' }));
+    expect(res.status).toBe(200);
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(incrementCounters).not.toHaveBeenCalled();
+  });
+
+  it('applies rate limiting when X-Dev-Token does not match', async () => {
+    const req = makeRequest('/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], signature: 'x', timestamp: 1 },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': 'wrong-token' },
+    });
+    const res = await handler.fetch(req, makeEnv({ DEV_BYPASS_TOKEN: 'my-secret-token' }));
+    expect(res.status).toBe(200);
+    expect(checkRateLimit).toHaveBeenCalled();
+    expect(incrementCounters).toHaveBeenCalled();
+  });
+
+  it('applies rate limiting when DEV_BYPASS_TOKEN is not set', async () => {
+    const req = makeRequest('/chat', {
+      method: 'POST',
+      body: { messages: [{ role: 'user', content: 'hi' }], signature: 'x', timestamp: 1 },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': 'some-token' },
+    });
+    const res = await handler.fetch(req, makeEnv());
+    expect(res.status).toBe(200);
+    expect(checkRateLimit).toHaveBeenCalled();
+    expect(incrementCounters).toHaveBeenCalled();
+  });
+});
