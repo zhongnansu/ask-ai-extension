@@ -68,7 +68,7 @@ export async function verifyHmac(body, secret) {
     return false;
   }
 
-  const payload = `${timestamp}${JSON.stringify(messages).substring(0, 100)}`;
+  const payload = `${timestamp}${JSON.stringify(messages)}`;
   const expected = await computeHmac(payload, secret);
   return expected === signature;
 }

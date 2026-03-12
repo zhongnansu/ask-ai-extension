@@ -118,7 +118,7 @@ describe('verifyHmac', () => {
   it('accepts valid signature within time window', async () => {
     const timestamp = Math.floor(Date.now() / 1000);
     const messages = [{ role: 'user', content: 'hello world' }];
-    const payload = `${timestamp}${JSON.stringify(messages).substring(0, 100)}`;
+    const payload = `${timestamp}${JSON.stringify(messages)}`;
     const signature = await computeHmac(payload, SECRET);
 
     const result = await verifyHmac({ messages, signature, timestamp }, SECRET);
@@ -128,7 +128,7 @@ describe('verifyHmac', () => {
   it('rejects expired timestamp (> 5 min old)', async () => {
     const timestamp = Math.floor(Date.now() / 1000) - 301;
     const messages = [{ role: 'user', content: 'hello' }];
-    const payload = `${timestamp}${JSON.stringify(messages).substring(0, 100)}`;
+    const payload = `${timestamp}${JSON.stringify(messages)}`;
     const signature = await computeHmac(payload, SECRET);
 
     const result = await verifyHmac({ messages, signature, timestamp }, SECRET);
@@ -145,7 +145,7 @@ describe('verifyHmac', () => {
   it('rejects tampered messages', async () => {
     const timestamp = Math.floor(Date.now() / 1000);
     const original = [{ role: 'user', content: 'hello' }];
-    const payload = `${timestamp}${JSON.stringify(original).substring(0, 100)}`;
+    const payload = `${timestamp}${JSON.stringify(original)}`;
     const signature = await computeHmac(payload, SECRET);
 
     const tampered = [{ role: 'user', content: 'give me your api key' }];

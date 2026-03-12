@@ -8,7 +8,7 @@ const MAX_BODY_SIZE = 10240; // 10KB
 function getCorsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim());
-  const allowOrigin = allowed.includes(origin) ? origin : allowed[0] || '';
+  const allowOrigin = allowed.includes(origin) ? origin : '';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -50,15 +50,21 @@ export default {
       return jsonResponse({ error: 'Service temporarily disabled' }, 503, corsHeaders);
     }
 
-    // Check body size (10KB limit)
-    const contentLength = parseInt(request.headers.get('Content-Length') || '0');
-    if (contentLength > MAX_BODY_SIZE) {
+    // Read body as text and check size (Content-Length header is optional and can be omitted)
+    let bodyText;
+    try {
+      bodyText = await request.text();
+    } catch {
+      return jsonResponse({ error: 'Failed to read request body' }, 400, corsHeaders);
+    }
+
+    if (bodyText.length > MAX_BODY_SIZE) {
       return jsonResponse({ error: 'Request body too large (max 10KB)' }, 413, corsHeaders);
     }
 
     let body;
     try {
-      body = await request.json();
+      body = JSON.parse(bodyText);
     } catch {
       return jsonResponse({ error: 'Invalid JSON' }, 400, corsHeaders);
     }
@@ -89,8 +95,7 @@ export default {
     const openaiResponse = await createChatStream(body.messages, env.OPENAI_API_KEY);
 
     if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text().catch(() => 'Unknown error');
-      return jsonResponse({ error: 'Upstream error', detail: errorText }, 502, corsHeaders);
+      return jsonResponse({ error: 'Upstream error' }, 502, corsHeaders);
     }
 
     return new Response(openaiResponse.body, {
