@@ -12,6 +12,20 @@ let presetSelector = null;
 let lastSelectedText = '';
 let lastSelectionRect = null;
 let lastAnchorNode = null;
+let dobbyEnabled = true;
+
+// Load initial enabled state and listen for toggle from toolbar popup
+if (typeof chrome !== 'undefined' && chrome.storage) {
+  chrome.storage.local.get('dobbyEnabled', (data) => {
+    dobbyEnabled = data.dobbyEnabled !== false;
+  });
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'DOBBY_TOGGLE') {
+      dobbyEnabled = msg.enabled;
+      if (!dobbyEnabled) { hideTrigger(); hidePresetSelector(); }
+    }
+  });
+}
 
 function createTriggerButton() {
   if (triggerButton) return;
@@ -267,7 +281,7 @@ document.addEventListener('mouseup', (e) => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
-    if (text.length >= 3) {
+    if (text.length >= 3 && dobbyEnabled) {
       showTrigger(cursorX, cursorY);
     } else {
       hideTrigger();
@@ -283,7 +297,7 @@ window.addEventListener('scroll', () => {
   scrollTimer = setTimeout(() => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
-    if (text.length >= 3 && selection.rangeCount > 0) {
+    if (text.length >= 3 && dobbyEnabled && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       showTrigger(rect.right, rect.top);
