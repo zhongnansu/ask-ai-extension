@@ -32,11 +32,13 @@ beforeEach(() => {
 });
 
 describe('createTriggerButton', () => {
-  it('creates button with Dobby AI branding', () => {
+  it('creates button with cockapoo icon', () => {
     createTriggerButton();
     const el = document.getElementById('dobby-ai-trigger');
     expect(el).not.toBeNull();
-    expect(el.textContent).toBe('\u2726 Dobby AI');
+    const img = el.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img.alt).toBe('Dobby AI');
   });
 
   it('is idempotent', () => {
@@ -45,24 +47,14 @@ describe('createTriggerButton', () => {
     expect(document.querySelectorAll('#dobby-ai-trigger').length).toBe(1);
   });
 
-  it('has frosted glass styling', () => {
-    createTriggerButton();
-    const el = document.getElementById('dobby-ai-trigger');
-    expect(el.style.position).toBe('fixed');
-    expect(el.style.backdropFilter).toBe('blur(12px)');
-  });
-
-  // Preserved from existing tests
-  it('has correct styling (frosted glass indigo, fixed position, high z-index)', () => {
+  it('has circular frosted glass styling', () => {
     createTriggerButton();
     const el = document.getElementById('dobby-ai-trigger');
     expect(el.style.position).toBe('fixed');
     expect(el.style.zIndex).toBe('2147483647');
-    expect(el.style.background).toBe('rgba(79, 70, 229, 0.7)');
     expect(el.style.backdropFilter).toBe('blur(12px)');
-    expect(el.style.color).toBe('white');
     expect(el.style.cursor).toBe('pointer');
-    expect(el.style.borderRadius).toBe('20px');
+    expect(el.style.borderRadius).toBe('50%');
     expect(el.style.display).toBe('none');
   });
 });
@@ -158,11 +150,11 @@ describe('event-driven behavior', () => {
     expect(btn.style.display).toBe('none');
   });
 
-  it('uses textContent instead of innerHTML for security', () => {
+  it('uses img element with data URI (no innerHTML)', () => {
     createTriggerButton();
     const btn = document.getElementById('dobby-ai-trigger');
-    expect(btn.textContent).toContain('Dobby AI');
-    expect(btn.textContent).toBe('\u2726 Dobby AI');
+    const img = btn.querySelector('img');
+    expect(img.src).toContain('data:image/svg+xml');
   });
 });
 
