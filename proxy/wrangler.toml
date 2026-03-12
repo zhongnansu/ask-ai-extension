@@ -1,0 +1,17 @@
+name = "dobby-ai-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Create KV namespace: wrangler kv namespace create RATE_LIMIT_KV
+# Then paste the id below
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+# - OPENAI_API_KEY
+# - HMAC_SECRET
+# - ALLOWED_ORIGINS (comma-separated extension origin IDs)
+
+[vars]
+ENABLED = "true"
