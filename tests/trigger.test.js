@@ -23,6 +23,7 @@ const {
   showTrigger,
   hideTrigger,
   _resetTriggerForTesting,
+  _setDobbyEnabled,
 } = await import('../trigger.js');
 
 beforeEach(() => {
@@ -130,6 +131,20 @@ describe('event-driven behavior', () => {
     vi.useFakeTimers();
     createTriggerButton();
     mockSelection('ab');
+
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    vi.advanceTimersByTime(20);
+
+    const btn = document.getElementById('dobby-ai-trigger');
+    expect(btn.style.display).toBe('none');
+    vi.useRealTimers();
+  });
+
+  it('mouseup does not show trigger when dobbyEnabled is false', () => {
+    vi.useFakeTimers();
+    createTriggerButton();
+    _setDobbyEnabled(false);
+    mockSelection('hello world');
 
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     vi.advanceTimersByTime(20);

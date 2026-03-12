@@ -12,6 +12,20 @@ let presetSelector = null;
 let lastSelectedText = '';
 let lastSelectionRect = null;
 let lastAnchorNode = null;
+let dobbyEnabled = true;
+
+// Load initial enabled state and listen for toggle from toolbar popup
+if (typeof chrome !== 'undefined' && chrome.storage) {
+  chrome.storage.local.get('dobbyEnabled', (data) => {
+    dobbyEnabled = data.dobbyEnabled !== false;
+  });
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'DOBBY_TOGGLE') {
+      dobbyEnabled = msg.enabled;
+      if (!dobbyEnabled) { hideTrigger(); hidePresetSelector(); }
+    }
+  });
+}
 
 function createTriggerButton() {
   if (triggerButton) return;
@@ -122,8 +136,8 @@ function showPresetSelector() {
 
   // Selected text preview
   const preview = document.createElement('div');
-  const previewText = lastSelectedText.length > 80
-    ? lastSelectedText.substring(0, 80) + '...'
+  const previewText = lastSelectedText.length > 300
+    ? lastSelectedText.substring(0, 300) + '...'
     : lastSelectedText;
   Object.assign(preview.style, {
     padding: '5px 7px',
@@ -133,8 +147,8 @@ function showPresetSelector() {
     borderRadius: '6px',
     marginBottom: '4px',
     lineHeight: '1.35',
-    maxHeight: '42px',
-    overflow: 'hidden',
+    maxHeight: '80px',
+    overflowY: 'auto',
     wordBreak: 'break-word',
     borderLeft: isDark ? '2px solid rgba(167,139,250,0.5)' : '2px solid rgba(124,58,237,0.3)',
   });
@@ -267,7 +281,7 @@ document.addEventListener('mouseup', (e) => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
-    if (text.length >= 3) {
+    if (text.length >= 3 && dobbyEnabled) {
       showTrigger(cursorX, cursorY);
     } else {
       hideTrigger();
@@ -283,7 +297,7 @@ window.addEventListener('scroll', () => {
   scrollTimer = setTimeout(() => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
-    if (text.length >= 3 && selection.rangeCount > 0) {
+    if (text.length >= 3 && dobbyEnabled && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       showTrigger(rect.right, rect.top);
@@ -312,6 +326,9 @@ function _resetTriggerForTesting() {
   lastSelectedText = '';
   lastSelectionRect = null;
   lastAnchorNode = null;
+  dobbyEnabled = true;
 }
 
-if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting };
+function _setDobbyEnabled(val) { dobbyEnabled = val; }
+
+if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting, _setDobbyEnabled };

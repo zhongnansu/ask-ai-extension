@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 200px;
+    padding: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    color: #18181b;
+    background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e28; color: #e4e4e7; }
+    .toggle-row { border-bottom-color: rgba(255,255,255,0.08); }
+    .status { color: #a1a1aa; }
+    .settings-link { color: #a78bfa; }
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .status { font-size: 12px; color: #71717a; }
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    cursor: pointer;
+  }
+  .toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle input:focus-visible + .slider {
+    outline: 2px solid #7c3aed;
+    outline-offset: 2px;
+  }
+  .slider {
+    position: absolute;
+    inset: 0;
+    background: #d4d4d8;
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+  .slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .slider {
+    background: #7c3aed;
+  }
+  .toggle input:checked + .slider::before {
+    transform: translateX(16px);
+  }
+  .settings-link {
+    display: block;
+    text-align: center;
+    font-size: 11px;
+    color: #7c3aed;
+    text-decoration: none;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="header">&#10022; Dobby AI</div>
+  <div class="toggle-row">
+    <span class="status" id="status">Enabled</span>
+    <label class="toggle">
+      <input type="checkbox" id="enabled" checked aria-label="Enable or disable Dobby AI">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <a class="settings-link" id="settings">Settings</a>
+  <script src="popup.js"></script>
+</body>
+</html>
