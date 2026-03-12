@@ -173,6 +173,15 @@ describe('bubble.js', () => {
     });
   });
 
+  describe('keyboard shortcuts', () => {
+    it('closes bubble on Escape key', () => {
+      showBubble({ bottom: 100, left: 50, right: 250 }, []);
+      expect(_getBubbleContainer()).not.toBeNull();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(_getBubbleContainer()).toBeNull();
+    });
+  });
+
   describe('renderMarkdown XSS', () => {
     it('escapes HTML tags in input', () => {
       const result = renderMarkdown('<script>alert("xss")</script>');

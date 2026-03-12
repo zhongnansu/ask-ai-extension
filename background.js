@@ -35,7 +35,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // --- HMAC Signing ---
 
 async function generateSignature(messages, timestamp, secret) {
-  const payload = `${timestamp}${JSON.stringify(messages).substring(0, 100)}`;
+  const payload = `${timestamp}${JSON.stringify(messages)}`;
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -131,25 +131,25 @@ chrome.runtime.onConnect.addListener((port) => {
       if (response.status === 429) {
         let data;
         try { data = await response.json(); } catch { data = { remaining: 0 }; }
-        port.postMessage({ type: 'rate_limited', remaining: data.remaining ?? 0, resetAt: data.resetAt });
+        try { port.postMessage({ type: 'rate_limited', remaining: data.remaining ?? 0, resetAt: data.resetAt }); } catch {}
         return;
       }
 
       if (!response.ok) {
-        port.postMessage({ type: 'error', code: response.status, message: 'Request failed' });
+        try { port.postMessage({ type: 'error', code: response.status, message: 'Request failed' }); } catch {}
         return;
       }
 
       const reader = response.body.getReader();
       for await (const token of parseSSEStream(reader)) {
-        port.postMessage({ type: 'token', text: token });
+        try { port.postMessage({ type: 'token', text: token }); } catch { break; }
       }
-      port.postMessage({ type: 'done' });
+      try { port.postMessage({ type: 'done' }); } catch {}
     } catch (err) {
       if (err.name === 'AbortError') {
-        port.postMessage({ type: 'error', code: 0, message: 'Request timed out' });
+        try { port.postMessage({ type: 'error', code: 0, message: 'Request timed out' }); } catch {}
       } else {
-        port.postMessage({ type: 'error', code: 0, message: err.message });
+        try { port.postMessage({ type: 'error', code: 0, message: err.message }); } catch {}
       }
     } finally {
       clearTimeout(timeout);
@@ -165,17 +165,10 @@ chrome.runtime.onConnect.addListener((port) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'VALIDATE_API_KEY') {
-    fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    fetch('https://api.openai.com/v1/models', {
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${msg.apiKey}`,
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: 'test' }],
-        max_tokens: 1,
-      }),
     })
       .then((res) => {
         if (res.ok) {

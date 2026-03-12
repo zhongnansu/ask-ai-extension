@@ -10,6 +10,7 @@ let bubbleHost = null;
 let currentMessages = [];
 let responseText = '';
 let currentRequest = null;
+let renderTimer = null;
 
 function detectTheme() {
   const bg = getComputedStyle(document.body).backgroundColor;
@@ -298,6 +299,10 @@ function showBubble(selectionRect, messages) {
     }
   });
 
+  // Escape key to close bubble
+  bubbleHost._escHandler = (e) => { if (e.key === 'Escape') hideBubble(); };
+  document.addEventListener('keydown', bubbleHost._escHandler);
+
   document.body.appendChild(bubbleHost);
 
   // Start streaming
@@ -325,12 +330,20 @@ function startStreaming(shadow, messages) {
         firstToken = false;
       }
       responseText += token;
-      responseEl.innerHTML = renderMarkdown(responseText);
-      // Auto-scroll
-      const body = shadow.querySelector('.bubble-body');
-      body.scrollTop = body.scrollHeight;
+      // Debounce rendering to ~50ms for performance
+      if (!renderTimer) {
+        renderTimer = setTimeout(() => {
+          renderTimer = null;
+          responseEl.innerHTML = renderMarkdown(responseText);
+          const body = shadow.querySelector('.bubble-body');
+          body.scrollTop = body.scrollHeight;
+        }, 50);
+      }
     },
     () => {
+      // Flush any pending render
+      if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+      responseEl.innerHTML = renderMarkdown(responseText);
       statusEl.textContent = '';
       cursorEl.classList.add('hidden');
       followUpInput.disabled = false;
@@ -495,12 +508,14 @@ function setBubbleStatus(status) {
 }
 
 function hideBubble() {
+  if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
   if (currentRequest) {
     currentRequest.cancel();
     currentRequest = null;
   }
-  if (bubbleHost && bubbleHost.parentNode) {
-    bubbleHost.parentNode.removeChild(bubbleHost);
+  if (bubbleHost) {
+    if (bubbleHost._escHandler) document.removeEventListener('keydown', bubbleHost._escHandler);
+    if (bubbleHost.parentNode) bubbleHost.parentNode.removeChild(bubbleHost);
   }
   bubbleHost = null;
   currentMessages = [];

@@ -230,6 +230,11 @@ describe('API key validation message handler', () => {
       expect(sendResponse).toHaveBeenCalledWith({ valid: true });
       expect(mockStorageSet).toHaveBeenCalledWith({ userApiKey: 'sk-test' });
     });
+
+    // Should use /v1/models (GET, free) not /v1/chat/completions
+    const calledUrl = fetch.mock.calls[0][0];
+    expect(calledUrl).toContain('/v1/models');
+    expect(fetch.mock.calls[0][1].method).toBeUndefined(); // GET (default)
   });
 
   it('responds with valid: false for invalid key', async () => {

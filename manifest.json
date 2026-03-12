@@ -5,7 +5,7 @@
   "description": "Select text and get instant AI explanations inline on any page",
   "permissions": ["contextMenus", "activeTab", "storage", "notifications"],
   "host_permissions": [
-    "https://*.workers.dev/*",
+    "https://dobby-ai-proxy.workers.dev/*",
     "https://api.openai.com/*"
   ],
   "background": {
