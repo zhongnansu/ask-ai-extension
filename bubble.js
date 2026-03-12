@@ -102,8 +102,8 @@ function getStyles(theme) {
       border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'};
       font-size: 12px;
       color: ${isDark ? '#a1a1aa' : '#71717a'};
-      max-height: 60px;
-      overflow: hidden;
+      max-height: 80px;
+      overflow-y: auto;
       line-height: 1.4;
     }
     .selected-text-preview .label {

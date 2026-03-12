@@ -12,8 +12,8 @@ toggle.addEventListener('change', () => {
   const enabled = toggle.checked;
   chrome.storage.local.set({ dobbyEnabled: enabled });
   status.textContent = enabled ? 'Enabled' : 'Disabled';
-  // Notify all tabs to update state
-  chrome.tabs.query({}, (tabs) => {
+  // Notify content-script tabs (filter to http/https to avoid chrome:// errors)
+  chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }, (tabs) => {
     tabs.forEach((tab) => {
       chrome.tabs.sendMessage(tab.id, { type: 'DOBBY_TOGGLE', enabled }).catch(() => {});
     });

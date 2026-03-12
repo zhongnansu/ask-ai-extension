@@ -136,8 +136,8 @@ function showPresetSelector() {
 
   // Selected text preview
   const preview = document.createElement('div');
-  const previewText = lastSelectedText.length > 80
-    ? lastSelectedText.substring(0, 80) + '...'
+  const previewText = lastSelectedText.length > 300
+    ? lastSelectedText.substring(0, 300) + '...'
     : lastSelectedText;
   Object.assign(preview.style, {
     padding: '5px 7px',
@@ -147,8 +147,8 @@ function showPresetSelector() {
     borderRadius: '6px',
     marginBottom: '4px',
     lineHeight: '1.35',
-    maxHeight: '42px',
-    overflow: 'hidden',
+    maxHeight: '80px',
+    overflowY: 'auto',
     wordBreak: 'break-word',
     borderLeft: isDark ? '2px solid rgba(167,139,250,0.5)' : '2px solid rgba(124,58,237,0.3)',
   });
@@ -326,6 +326,9 @@ function _resetTriggerForTesting() {
   lastSelectedText = '';
   lastSelectionRect = null;
   lastAnchorNode = null;
+  dobbyEnabled = true;
 }
 
-if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting };
+function _setDobbyEnabled(val) { dobbyEnabled = val; }
+
+if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting, _setDobbyEnabled };

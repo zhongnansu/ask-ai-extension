@@ -40,7 +40,16 @@
     height: 20px;
     cursor: pointer;
   }
-  .toggle input { display: none; }
+  .toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle input:focus-visible + .slider {
+    outline: 2px solid #7c3aed;
+    outline-offset: 2px;
+  }
   .slider {
     position: absolute;
     inset: 0;
@@ -80,7 +89,7 @@
   <div class="toggle-row">
     <span class="status" id="status">Enabled</span>
     <label class="toggle">
-      <input type="checkbox" id="enabled" checked>
+      <input type="checkbox" id="enabled" checked aria-label="Enable or disable Dobby AI">
       <span class="slider"></span>
     </label>
   </div>
