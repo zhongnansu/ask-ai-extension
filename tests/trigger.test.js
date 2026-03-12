@@ -84,8 +84,8 @@ describe('showTrigger', () => {
   it('clamps left position to prevent off-screen rendering', () => {
     showTrigger(1020, 100);
     const el = document.getElementById('dobby-ai-trigger');
-    // maxLeft = 1024 - 80 - 8 = 936 (jsdom defaults innerWidth=1024, offsetWidth fallback=80)
-    expect(parseInt(el.style.left)).toBeLessThanOrEqual(936);
+    // maxLeft = 1024 - 36 - 8 = 980 (jsdom defaults innerWidth=1024, offsetWidth fallback=36)
+    expect(parseInt(el.style.left)).toBeLessThanOrEqual(980);
   });
 
   it('clamps top position to viewport bottom', () => {

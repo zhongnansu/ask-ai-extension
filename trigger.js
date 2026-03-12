@@ -196,8 +196,8 @@ function hidePresetSelector() {
 function showTrigger(x, y) {
   createTriggerButton();
   triggerButton.style.display = 'block';
-  const buttonWidth = triggerButton.offsetWidth || 80;
-  const buttonHeight = triggerButton.offsetHeight || 28;
+  const buttonWidth = triggerButton.offsetWidth || 36;
+  const buttonHeight = triggerButton.offsetHeight || 36;
   const maxLeft = window.innerWidth - buttonWidth - 8;
   const maxTop = window.innerHeight - buttonHeight - 8;
   // Position below-right of cursor: close enough to click, but not blocking
