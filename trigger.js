@@ -16,28 +16,52 @@ let lastAnchorNode = null;
 function createTriggerButton() {
   if (triggerButton) return;
 
+  // Cockapoo icon as inline SVG data URI
+  const cockapooSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <circle cx="32" cy="30" r="22" fill="#C4956A"/>
+    <circle cx="14" cy="22" r="8" fill="#B8845A"/>
+    <circle cx="50" cy="22" r="8" fill="#B8845A"/>
+    <circle cx="20" cy="12" r="7" fill="#D4A574"/>
+    <circle cx="44" cy="12" r="7" fill="#D4A574"/>
+    <circle cx="32" cy="10" r="7" fill="#C4956A"/>
+    <circle cx="26" cy="8" r="5" fill="#BF8F60"/>
+    <circle cx="38" cy="8" r="5" fill="#BF8F60"/>
+    <ellipse cx="10" cy="34" rx="7" ry="12" fill="#A07048" transform="rotate(-10 10 34)"/>
+    <ellipse cx="54" cy="34" rx="7" ry="12" fill="#A07048" transform="rotate(10 54 34)"/>
+    <ellipse cx="32" cy="34" rx="14" ry="11" fill="#E8C9A0"/>
+    <circle cx="24" cy="28" r="3.5" fill="#2D1B0E"/>
+    <circle cx="40" cy="28" r="3.5" fill="#2D1B0E"/>
+    <circle cx="25.2" cy="27" r="1.2" fill="white"/>
+    <circle cx="41.2" cy="27" r="1.2" fill="white"/>
+    <ellipse cx="32" cy="35" rx="4" ry="3" fill="#2D1B0E"/>
+    <ellipse cx="32" cy="34.5" rx="1.5" ry="0.8" fill="#5A3A1E" opacity="0.4"/>
+    <path d="M28 38 Q32 42 36 38" fill="none" stroke="#2D1B0E" stroke-width="1.2" stroke-linecap="round"/>
+    <ellipse cx="32" cy="41" rx="2.5" ry="3" fill="#E87B7B"/>
+  </svg>`;
+
+  const iconDataUri = 'data:image/svg+xml,' + encodeURIComponent(cockapooSvg);
+
   triggerButton = document.createElement('div');
   triggerButton.id = 'dobby-ai-trigger';
-  triggerButton.textContent = '\u2726 Dobby AI';
+  const img = document.createElement('img');
+  img.src = iconDataUri;
+  img.alt = 'Dobby AI';
+  Object.assign(img.style, { width: '28px', height: '28px', display: 'block' });
+  triggerButton.appendChild(img);
   Object.assign(triggerButton.style, {
     position: 'fixed',
     zIndex: '2147483647',
-    background: 'rgba(79, 70, 229, 0.7)',
+    background: 'rgba(255, 255, 255, 0.85)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
-    color: 'white',
-    padding: '4px 10px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '500',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    padding: '4px',
+    borderRadius: '50%',
     cursor: 'pointer',
-    boxShadow: '0 4px 15px rgba(79,70,229,0.4)',
-    border: '1px solid rgba(255,255,255,0.15)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+    border: '1px solid rgba(0,0,0,0.08)',
     display: 'none',
     userSelect: 'none',
-    lineHeight: '1',
-    whiteSpace: 'nowrap',
+    lineHeight: '0',
   });
 
   triggerButton.addEventListener('mousedown', (e) => {
