@@ -107,7 +107,7 @@ export default {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'X-RateLimit-Remaining': String(rateResult.remaining),
+        ...(rateResult.remaining != null ? { 'X-RateLimit-Remaining': String(rateResult.remaining) } : {}),
         ...corsHeaders,
       },
     });
