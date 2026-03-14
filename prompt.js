@@ -6,9 +6,10 @@ const MAX_TEXT_LENGTH = 6000;
  * @param {string} selectedText
  * @param {string} instruction - Preset or custom instruction (can be empty/null)
  * @param {boolean} includePageContext
- * @returns {Array<{role: string, content: string}>}
+ * @param {Array} [images] - Optional array of {type: "image_url", image_url: {url}} objects
+ * @returns {Array<{role: string, content: string|Array}>}
  */
-function buildChatMessages(selectedText, instruction, includePageContext) {
+function buildChatMessages(selectedText, instruction, includePageContext, images) {
   let text = selectedText;
   if (text.length > MAX_TEXT_LENGTH) {
     text = text.substring(0, MAX_TEXT_LENGTH) + '...[truncated]';
@@ -24,17 +25,34 @@ function buildChatMessages(selectedText, instruction, includePageContext) {
 
   // Combine instruction + selected text in the user message so the model
   // clearly knows what task to perform on which text
-  let userContent = instruction
+  let userText = instruction
     ? `${instruction}:\n\n${text}`
     : text;
 
   if (includePageContext) {
     const title = typeof document !== 'undefined' ? document.title : '';
     const url = typeof window !== 'undefined' ? window.location.href : '';
-    userContent += `\n\n(Source: "${title}" — ${url})`;
+    userText += `\n\n(Source: "${title}" — ${url})`;
   }
 
-  messages.push({ role: 'user', content: userContent });
+  // When images are present, build multimodal content array
+  if (images && images.length > 0) {
+    const contentParts = [];
+    // If there's meaningful text, put it first
+    if (text.trim()) {
+      contentParts.push({ type: 'text', text: userText });
+      images.forEach(img => contentParts.push(img));
+    } else {
+      // Image-only: images first, then instruction as text
+      images.forEach(img => contentParts.push(img));
+      const instructionText = instruction || 'Explain this image';
+      contentParts.push({ type: 'text', text: instructionText });
+    }
+    messages.push({ role: 'user', content: contentParts });
+  } else {
+    messages.push({ role: 'user', content: userText });
+  }
+
   return messages;
 }
 

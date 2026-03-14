@@ -183,6 +183,18 @@ function getStyles(theme) {
       transition: opacity 0.15s;
     }
     .response-text .response-img:hover { opacity: 0.85; }
+    .image-preview {
+      display: flex;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    .image-preview img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
     .img-lightbox {
       position: fixed;
       inset: 0;
@@ -355,17 +367,31 @@ function createBubbleHost(selectionRect) {
   return bubbleHost;
 }
 
-function buildBubbleHTML(previewText, previewLabel, showPresets) {
+function buildBubbleHTML(previewText, previewLabel, showPresets, images) {
+  const hasPreview = previewText || (images && images.length > 0);
+  let previewHtml = '';
+  if (hasPreview) {
+    let imgHtml = '';
+    if (images && images.length > 0) {
+      imgHtml = '<div class="image-preview">' +
+        images.map(img => {
+          const url = img.image_url ? img.image_url.url : '';
+          return `<img src="${escapeHtml(url)}" alt="Preview" onerror="this.style.display='none'">`;
+        }).join('') + '</div>';
+    }
+    previewHtml = `<div class="selected-text-preview">
+      <div class="label">${escapeHtml(previewLabel || (images && images.length > 0 ? 'Image' : 'Selected text'))}</div>
+      ${imgHtml}
+      ${previewText ? `<div class="text">${escapeHtml(previewText)}</div>` : ''}
+    </div>`;
+  }
   return `
     <div class="bubble-header">
       <span class="bubble-logo">\u2726 Dobby AI</span>
       <span class="bubble-status"></span>
       <button class="close-btn" title="Close">\u2715</button>
     </div>
-    ${previewText ? `<div class="selected-text-preview">
-      <div class="label">${escapeHtml(previewLabel)}</div>
-      <div class="text">${escapeHtml(previewText)}</div>
-    </div>` : ''}
+    ${previewHtml}
     ${showPresets ? '<div class="presets-section"></div>' : ''}
     <div class="response-section">
       <div class="bubble-body">
@@ -431,7 +457,7 @@ function truncatePreview(text, maxLen = 120) {
   return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
 }
 
-function initBubble(selectionRect, selectedText, previewLabel, showPresets) {
+function initBubble(selectionRect, selectedText, previewLabel, showPresets, images) {
   hideBubble();
   responseText = '';
 
@@ -444,7 +470,7 @@ function initBubble(selectionRect, selectedText, previewLabel, showPresets) {
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = buildBubbleHTML(truncatePreview(selectedText), previewLabel, showPresets);
+  bubble.innerHTML = buildBubbleHTML(truncatePreview(selectedText), previewLabel, showPresets, images);
   shadow.appendChild(bubble);
 
   wireCommonEvents(shadow);
@@ -453,15 +479,23 @@ function initBubble(selectionRect, selectedText, previewLabel, showPresets) {
 }
 
 // Show bubble with preset selection first, then expand to show response
-function showBubbleWithPresets(selectionRect, selectedText, anchorNode) {
-  const shadow = initBubble(selectionRect, selectedText, 'Selected text', true);
+function showBubbleWithPresets(selectionRect, selectedText, anchorNode, images) {
+  const hasImages = images && images.length > 0;
+  const isImageOnly = hasImages && !selectedText.trim();
+  const previewLabel = isImageOnly ? 'Image' : 'Selected text';
+  const shadow = initBubble(selectionRect, selectedText, previewLabel, true, images);
 
   // Detect content type and populate presets
-  const detected = typeof detectContentType === 'function'
-    ? detectContentType(selectedText, anchorNode)
-    : (typeof detectContent === 'function'
-      ? detectContent(selectedText)
-      : { type: 'default', subType: null, confidence: 'medium' });
+  let detected;
+  if (isImageOnly) {
+    detected = { type: 'image', subType: null, confidence: 'high' };
+  } else {
+    detected = typeof detectContentType === 'function'
+      ? detectContentType(selectedText, anchorNode)
+      : (typeof detectContent === 'function'
+        ? detectContent(selectedText)
+        : { type: 'default', subType: null, confidence: 'medium' });
+  }
 
   const presets = typeof getSuggestedPresetsForType === 'function'
     ? getSuggestedPresetsForType(detected.type, detected.subType)
@@ -473,7 +507,7 @@ function showBubbleWithPresets(selectionRect, selectedText, anchorNode) {
   if (detected.type !== 'default') {
     const badge = document.createElement('div');
     badge.className = 'detection-badge';
-    badge.textContent = `${detected.subType || detected.type} detected`;
+    badge.textContent = isImageOnly ? 'image' : `${detected.subType || detected.type} detected`;
     presetsSection.appendChild(badge);
   }
 
@@ -487,7 +521,7 @@ function showBubbleWithPresets(selectionRect, selectedText, anchorNode) {
     chip.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      launchFromPreset(shadow, selectedText, preset.instruction);
+      launchFromPreset(shadow, selectedText, preset.instruction, images);
     });
     chipsRow.appendChild(chip);
   });
@@ -496,19 +530,19 @@ function showBubbleWithPresets(selectionRect, selectedText, anchorNode) {
   // Custom input
   const customInput = document.createElement('input');
   customInput.className = 'preset-input';
-  customInput.placeholder = 'Or type a custom prompt...';
+  customInput.placeholder = isImageOnly ? 'Or ask something about this image...' : 'Or type a custom prompt...';
   customInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && customInput.value.trim()) {
-      launchFromPreset(shadow, selectedText, customInput.value.trim());
+      launchFromPreset(shadow, selectedText, customInput.value.trim(), images);
     }
     if (e.key === 'Escape') hideBubble();
   });
   presetsSection.appendChild(customInput);
 }
 
-function launchFromPreset(shadow, selectedText, instruction) {
+function launchFromPreset(shadow, selectedText, instruction, images) {
   const messages = typeof buildChatMessages === 'function'
-    ? buildChatMessages(selectedText, instruction, true)
+    ? buildChatMessages(selectedText, instruction, true, images)
     : [{ role: 'user', content: `${instruction}:\n\n${selectedText}` }];
   currentMessages = messages;
 
@@ -520,9 +554,9 @@ function launchFromPreset(shadow, selectedText, instruction) {
 }
 
 // Direct bubble (used by context menu — no preset selection needed)
-function showBubble(selectionRect, messages, selectedText, instruction) {
+function showBubble(selectionRect, messages, selectedText, instruction, images) {
   currentMessages = messages;
-  const shadow = initBubble(selectionRect, selectedText, instruction || 'Selected text', false);
+  const shadow = initBubble(selectionRect, selectedText, instruction || 'Selected text', false, images);
   activateResponseSection(shadow, messages);
 }
 
@@ -573,11 +607,22 @@ function startStreaming(shadow, messages) {
       followUpInput.focus();
       currentMessages.push({ role: 'assistant', content: responseText });
 
-      // Save to history
+      // Save to history — extract text from multimodal content arrays
       const firstUser = messages.find((m) => m.role === 'user');
       const instruction = messages.find((m) => m.role === 'system');
+      let historyText = '';
+      if (firstUser) {
+        if (typeof firstUser.content === 'string') {
+          historyText = firstUser.content;
+        } else if (Array.isArray(firstUser.content)) {
+          historyText = firstUser.content
+            .filter(item => item.type === 'text')
+            .map(item => item.text)
+            .join('\n');
+        }
+      }
       saveConversation({
-        text: firstUser?.content || '',
+        text: historyText,
         instruction: instruction?.content || '',
         response: responseText,
         pageUrl: window.location.href,

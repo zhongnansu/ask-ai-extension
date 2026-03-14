@@ -76,14 +76,138 @@ describe('validatePayload', () => {
     expect(result.error).toContain('Invalid role');
   });
 
-  it('rejects non-string content', () => {
+  it('rejects non-string non-array content', () => {
     const result = validatePayload({
       messages: [{ role: 'user', content: 123 }],
       signature: 'x',
       timestamp: 1,
     });
     expect(result.valid).toBe(false);
-    expect(result.error).toContain('string');
+    expect(result.error).toContain('string or array');
+  });
+
+  it('rejects empty content array', () => {
+    const result = validatePayload({
+      messages: [{ role: 'user', content: [] }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('empty');
+  });
+
+  it('accepts content as array with text items', () => {
+    const result = validatePayload({
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts content as array with text and image_url items', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Explain this' },
+          { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts image_url with data: URL', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc' } },
+          { type: 'text', text: 'what is this?' },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects image_url with http: URL', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: 'http://example.com/img.png' } },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('https:');
+  });
+
+  it('rejects more than 2 images per message', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: 'https://a.com/1.png' } },
+          { type: 'image_url', image_url: { url: 'https://a.com/2.png' } },
+          { type: 'image_url', image_url: { url: 'https://a.com/3.png' } },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Too many images');
+  });
+
+  it('rejects unknown content item type', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [{ type: 'audio', data: 'something' }],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Unknown content type');
+  });
+
+  it('counts only text items toward char limit for array content', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a'.repeat(5999) },
+          { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + 'x'.repeat(100000) } },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects array content exceeding char limit', () => {
+    const result = validatePayload({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a'.repeat(6001) },
+        ],
+      }],
+      signature: 'x',
+      timestamp: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Content too long');
   });
 });
 

@@ -72,6 +72,56 @@ describe('buildChatMessages', () => {
     const content = result[1].content;
     expect(content).toMatch(/^Summarize the following:\n\nsome text\n\n\(Source:/);
   });
+
+  it('returns string content when no images', () => {
+    const result = buildChatMessages('text', 'Explain', false);
+    expect(typeof result[1].content).toBe('string');
+  });
+
+  it('returns string content when images is empty array', () => {
+    const result = buildChatMessages('text', 'Explain', false, []);
+    expect(typeof result[1].content).toBe('string');
+  });
+
+  it('returns array content when images are provided with text', () => {
+    const images = [{ type: 'image_url', image_url: { url: 'https://example.com/img.png' } }];
+    const result = buildChatMessages('some text', 'Explain', false, images);
+    expect(Array.isArray(result[1].content)).toBe(true);
+    // Text first, then image
+    expect(result[1].content[0].type).toBe('text');
+    expect(result[1].content[0].text).toContain('Explain');
+    expect(result[1].content[0].text).toContain('some text');
+    expect(result[1].content[1]).toEqual(images[0]);
+  });
+
+  it('puts images first when text is empty (image-only mode)', () => {
+    const images = [{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc' } }];
+    const result = buildChatMessages('', 'Explain this image', false, images);
+    expect(Array.isArray(result[1].content)).toBe(true);
+    // Image first, then instruction text
+    expect(result[1].content[0]).toEqual(images[0]);
+    expect(result[1].content[1].type).toBe('text');
+    expect(result[1].content[1].text).toBe('Explain this image');
+  });
+
+  it('defaults instruction to "Explain this image" for image-only with no instruction', () => {
+    const images = [{ type: 'image_url', image_url: { url: 'https://example.com/img.png' } }];
+    const result = buildChatMessages('', '', false, images);
+    expect(result[1].content[1].text).toBe('Explain this image');
+  });
+
+  it('supports multiple images', () => {
+    const images = [
+      { type: 'image_url', image_url: { url: 'https://example.com/1.png' } },
+      { type: 'image_url', image_url: { url: 'https://example.com/2.png' } },
+    ];
+    const result = buildChatMessages('text here', 'Compare', false, images);
+    const content = result[1].content;
+    expect(content.length).toBe(3); // text + 2 images
+    expect(content[0].type).toBe('text');
+    expect(content[1].type).toBe('image_url');
+    expect(content[2].type).toBe('image_url');
+  });
 });
 
 describe('buildFollowUp', () => {

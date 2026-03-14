@@ -72,7 +72,7 @@ function createTriggerButton() {
     lineHeight: '0',
   });
 
-  triggerButton.addEventListener('mousedown', (e) => {
+  triggerButton.addEventListener('mousedown', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     const selection = window.getSelection();
@@ -83,7 +83,14 @@ function createTriggerButton() {
         ? selection.getRangeAt(0).getBoundingClientRect()
         : { bottom: 200, left: 100, right: 300, top: 180 };
       hideTrigger();
-      showBubbleWithPresets(rect, text, anchorNode);
+
+      // Extract images from selection range
+      let images = [];
+      if (selection.rangeCount > 0 && typeof captureImage === 'function') {
+        images = await extractImagesFromSelection(selection);
+      }
+
+      showBubbleWithPresets(rect, text, anchorNode, images.length > 0 ? images : undefined);
     }
   });
 
@@ -173,6 +180,187 @@ document.addEventListener('mousedown', (e) => {
   hideTrigger();
 });
 
+// --- Image extraction from text selection ---
+
+async function extractImagesFromSelection(selection, maxImages = 2) {
+  const images = [];
+  if (!selection.rangeCount) return images;
+
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+  const imgElements = container.nodeType === Node.ELEMENT_NODE
+    ? container.querySelectorAll('img')
+    : (container.parentElement ? container.parentElement.querySelectorAll('img') : []);
+
+  for (const imgEl of imgElements) {
+    if (images.length >= maxImages) break;
+    if (!range.intersectsNode(imgEl)) continue;
+    if (!imgEl.src) continue;
+
+    if (typeof captureImage === 'function') {
+      const captured = await captureImage(imgEl);
+      if (captured) images.push(captured);
+    }
+  }
+  return images;
+}
+
+// --- Long-press screenshot mode ---
+
+let longPressTimer = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+const LONG_PRESS_DURATION = 1500;
+const MOVEMENT_THRESHOLD = 5;
+let screenshotOverlay = null;
+let screenshotStartX = 0;
+let screenshotStartY = 0;
+let screenshotRect = null;
+
+function isInputElement(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
+
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return; // left click only
+  if (isInputElement(e.target)) return;
+  if (triggerButton?.contains(e.target)) return;
+  if (typeof _getBubbleContainer === 'function') {
+    const bc = _getBubbleContainer();
+    if (bc?.contains(e.target)) return;
+  }
+  if (screenshotOverlay) return;
+
+  longPressStartX = e.clientX;
+  longPressStartY = e.clientY;
+
+  longPressTimer = setTimeout(() => {
+    startScreenshotMode();
+  }, LONG_PRESS_DURATION);
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (longPressTimer) {
+    const dx = Math.abs(e.clientX - longPressStartX);
+    const dy = Math.abs(e.clientY - longPressStartY);
+    if (dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  // Screenshot region drag
+  if (screenshotOverlay && screenshotRect) {
+    const x = Math.min(screenshotStartX, e.clientX);
+    const y = Math.min(screenshotStartY, e.clientY);
+    const w = Math.abs(e.clientX - screenshotStartX);
+    const h = Math.abs(e.clientY - screenshotStartY);
+    Object.assign(screenshotRect.style, {
+      left: x + 'px',
+      top: y + 'px',
+      width: w + 'px',
+      height: h + 'px',
+    });
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, true);
+
+function startScreenshotMode() {
+  longPressTimer = null;
+
+  screenshotOverlay = document.createElement('div');
+  Object.assign(screenshotOverlay.style, {
+    position: 'fixed',
+    inset: '0',
+    zIndex: '2147483646',
+    background: 'rgba(0, 0, 0, 0.3)',
+    cursor: 'crosshair',
+  });
+
+  screenshotRect = document.createElement('div');
+  Object.assign(screenshotRect.style, {
+    position: 'fixed',
+    border: '2px dashed #7c3aed',
+    background: 'rgba(124, 58, 237, 0.1)',
+    display: 'none',
+    zIndex: '2147483647',
+  });
+  screenshotOverlay.appendChild(screenshotRect);
+
+  screenshotOverlay.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    screenshotStartX = e.clientX;
+    screenshotStartY = e.clientY;
+    screenshotRect.style.display = 'block';
+    Object.assign(screenshotRect.style, {
+      left: e.clientX + 'px',
+      top: e.clientY + 'px',
+      width: '0px',
+      height: '0px',
+    });
+  });
+
+  screenshotOverlay.addEventListener('mouseup', async (e) => {
+    const x = Math.min(screenshotStartX, e.clientX);
+    const y = Math.min(screenshotStartY, e.clientY);
+    const w = Math.abs(e.clientX - screenshotStartX);
+    const h = Math.abs(e.clientY - screenshotStartY);
+
+    cancelScreenshotMode();
+
+    if (w < 10 || h < 10) return; // Too small, ignore
+
+    const rect = { x, y, width: w, height: h };
+    if (typeof captureScreenshot === 'function') {
+      const captured = await captureScreenshot(rect);
+      if (captured) {
+        const bubbleRect = {
+          bottom: y + h + 8,
+          left: x,
+          right: x + w,
+          top: y,
+        };
+        showBubbleWithPresets(bubbleRect, '', null, [captured]);
+      }
+    }
+  });
+
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      cancelScreenshotMode();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  screenshotOverlay._escHandler = escHandler;
+
+  document.body.appendChild(screenshotOverlay);
+}
+
+function cancelScreenshotMode() {
+  if (screenshotOverlay) {
+    if (screenshotOverlay._escHandler) {
+      document.removeEventListener('keydown', screenshotOverlay._escHandler);
+    }
+    if (screenshotOverlay.parentNode) {
+      screenshotOverlay.parentNode.removeChild(screenshotOverlay);
+    }
+    screenshotOverlay = null;
+    screenshotRect = null;
+  }
+}
+
 function _resetTriggerForTesting() {
   if (triggerButton && triggerButton.parentNode) {
     triggerButton.parentNode.removeChild(triggerButton);
@@ -183,4 +371,4 @@ function _resetTriggerForTesting() {
 
 function _setDobbyEnabled(val) { dobbyEnabled = val; }
 
-if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting, _setDobbyEnabled };
+if (typeof module !== 'undefined') module.exports = { createTriggerButton, showTrigger, hideTrigger, _resetTriggerForTesting, _setDobbyEnabled, extractImagesFromSelection, startScreenshotMode, cancelScreenshotMode };

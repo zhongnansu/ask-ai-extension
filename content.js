@@ -9,7 +9,25 @@ chrome.runtime.onMessage.addListener((msg) => {
       left: window.innerWidth / 4,
       right: window.innerWidth * 3 / 4,
     };
-    // Default instruction when no preset selected (context menu path)
+
+    // Image context menu click
+    if (msg.image) {
+      (async () => {
+        let images = [];
+        if (typeof captureImage === 'function') {
+          const captured = await captureImage(msg.image);
+          if (captured) images = [captured];
+        }
+        if (images.length > 0) {
+          showBubbleWithPresets(rect, '', null, images);
+        } else {
+          showBubble(rect, [{ role: 'user', content: "Couldn't capture this image" }], '', 'Error');
+        }
+      })();
+      return;
+    }
+
+    // Text selection context menu click
     const instruction = 'Explain the following';
     const messages = buildChatMessages(msg.text, instruction, true);
     showBubble(rect, messages, msg.text, instruction);

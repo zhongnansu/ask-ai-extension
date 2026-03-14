@@ -184,7 +184,7 @@ describe('POST /chat', () => {
   });
 
   it('returns 413 for oversized request body', async () => {
-    const oversizedBody = JSON.stringify({ messages: [{ role: 'user', content: 'x'.repeat(20000) }] });
+    const oversizedBody = JSON.stringify({ messages: [{ role: 'user', content: 'x'.repeat(2200000) }] });
     const req = new Request('https://proxy.workers.dev/chat', {
       method: 'POST',
       headers: new Headers({ 'CF-Connecting-IP': '1.2.3.4', 'Content-Type': 'application/json' }),
