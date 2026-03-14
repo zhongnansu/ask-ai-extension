@@ -3,7 +3,7 @@ import { buildChatMessages, buildFollowUp, MAX_TEXT_LENGTH } from '../prompt.js'
 
 const SYSTEM_MSG = {
   role: 'system',
-  content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and the full selected text is provided below. Do NOT attempt to access, fetch, or visit any URLs — the text content is already included in the message. A source URL may be provided as metadata only. Be concise and clear. Always respond in the same language as the selected text. When a visual diagram or image would help explain a concept, you may include it using markdown image syntax ![description](https://url). This does not involve fetching — you are just embedding a reference. Only include images from stable, well-known sources (e.g., Wikipedia, official documentation) where you are confident the URL exists. It is better to describe a diagram in text than to link a broken image.',
+  content: 'You are Dobby AI, a helpful assistant. The user has selected text on a webpage and the full selected text is provided below. Do NOT attempt to access, fetch, or visit any URLs — the text content is already included in the message. A source URL may be provided as metadata only. Be concise and clear. Always respond in the same language as the selected text.',
 };
 
 describe('MAX_TEXT_LENGTH', () => {
