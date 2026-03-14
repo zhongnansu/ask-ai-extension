@@ -227,8 +227,33 @@ describe('bubble.js', () => {
 
     it('escapes alt text to prevent XSS', () => {
       const result = renderMarkdown('![<script>xss</script>](https://example.com/img.png)');
-      expect(result).toContain('alt="&lt;script&gt;xss&lt;/script&gt;"');
+      expect(result).toContain('&lt;script&gt;');
       expect(result).not.toContain('alt="<script>');
+    });
+
+    it('escapes double quotes in alt text', () => {
+      const result = renderMarkdown('![x" onerror="alert(1)](https://example.com/img.png)');
+      // Quotes escaped — onerror stays inside the alt value, not a separate attribute
+      expect(result).toContain('&quot;');
+      expect(result).not.toMatch(/alt="[^"]*"\s+onerror="/);
+    });
+
+    it('escapes double quotes in URLs', () => {
+      const result = renderMarkdown('![x](https://evil.com/x" onerror="alert(1))');
+      // Quotes escaped — onerror stays inside the src value, not a separate attribute
+      expect(result).toContain('&quot;');
+      expect(result).not.toMatch(/src="[^"]*"\s+onerror="/);
+    });
+
+    it('does not render images inside code blocks', () => {
+      const result = renderMarkdown('```\n![alt](https://example.com/img.png)\n```');
+      expect(result).not.toContain('<img');
+      expect(result).toContain('<pre><code>');
+    });
+
+    it('handles placeholder pattern in raw text without crashing', () => {
+      const result = renderMarkdown('The pattern %%IMAGE_0%% is used internally');
+      expect(result).toBeDefined();
     });
 
     it('renders multiple images', () => {

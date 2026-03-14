@@ -20,7 +20,8 @@ function detectTheme() {
 }
 
 function escapeHtml(text) {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function isValidImageUrl(url) {
@@ -33,24 +34,25 @@ function isValidImageUrl(url) {
 }
 
 function renderMarkdown(text) {
+  // Extract code blocks first so their contents are not processed
+  const codeBlocks = [];
+  let processed = text.replace(/```([\s\S]*?)```/g, (_, code) => {
+    codeBlocks.push(code);
+    return `%%CODEBLOCK_${codeBlocks.length - 1}%%`;
+  });
+
   // Extract images before escaping (they need real <img> tags)
   const images = [];
-  let processed = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+  processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
     if (isValidImageUrl(url)) {
-      images.push({ alt: escapeHtml(alt), url });
+      images.push({ alt: escapeHtml(alt), url: escapeHtml(url) });
       return `%%IMAGE_${images.length - 1}%%`;
     }
-    return escapeHtml(`![${alt}](${url})`);
+    return `![${alt}](${url})`;
   });
 
   // Escape HTML to prevent XSS
   let escaped = escapeHtml(processed);
-  // Extract code blocks before other transforms (preserve newlines inside)
-  const codeBlocks = [];
-  escaped = escaped.replace(/```([\s\S]*?)```/g, (_, code) => {
-    codeBlocks.push(code);
-    return `%%CODEBLOCK_${codeBlocks.length - 1}%%`;
-  });
   // Inline transforms
   escaped = escaped
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -59,11 +61,13 @@ function renderMarkdown(text) {
     .replace(/\n/g, '<br>');
   // Re-insert code blocks with preserved formatting
   escaped = escaped.replace(/%%CODEBLOCK_(\d+)%%/g, (_, i) => {
-    return '<pre><code>' + codeBlocks[parseInt(i)] + '</code></pre>';
+    const block = codeBlocks[parseInt(i)];
+    return block != null ? '<pre><code>' + escapeHtml(block) + '</code></pre>' : '';
   });
   // Re-insert images
   escaped = escaped.replace(/%%IMAGE_(\d+)%%/g, (_, i) => {
     const img = images[parseInt(i)];
+    if (!img) return '';
     return `<img class="response-img" src="${img.url}" alt="${img.alt}" loading="lazy">`;
   });
   return escaped;
@@ -397,12 +401,18 @@ function wireCommonEvents(shadow) {
     if (e.target.classList.contains('response-img')) {
       const overlay = document.createElement('div');
       overlay.className = 'img-lightbox';
+      overlay.tabIndex = 0;
       const img = document.createElement('img');
       img.src = e.target.src;
       img.alt = e.target.alt;
       overlay.appendChild(img);
-      overlay.addEventListener('click', () => overlay.remove());
+      const dismiss = () => overlay.remove();
+      overlay.addEventListener('click', dismiss);
+      overlay.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
+      });
       shadow.appendChild(overlay);
+      overlay.focus();
     }
   });
 }
