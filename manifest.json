@@ -6,14 +6,15 @@
   "permissions": ["contextMenus", "activeTab", "storage", "notifications"],
   "host_permissions": [
     "https://dobby-ai-proxy.zhongnansu.workers.dev/*",
-    "https://api.openai.com/*"
+    "https://api.openai.com/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["detection.js", "presets.js", "prompt.js", "history.js", "api.js", "bubble.js", "trigger.js", "content.js"]
+    "js": ["detection.js", "presets.js", "prompt.js", "history.js", "api.js", "image-capture.js", "bubble.js", "trigger.js", "content.js"]
   }],
   "action": {
     "default_popup": "popup.html",

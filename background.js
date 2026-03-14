@@ -14,17 +14,31 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'dobby-ai',
     title: 'Dobby AI',
-    contexts: ['selection'],
+    contexts: ['selection', 'image'],
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'dobby-ai') return;
+
+  // Image context menu click
+  if (info.mediaType === 'image' && info.srcUrl) {
+    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_BUBBLE', image: info.srcUrl }).catch(() => {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: 'Dobby AI',
+        message: 'Cannot run on this page. Try a regular webpage.',
+      });
+    });
+    return;
+  }
+
+  // Text selection context menu click
   const text = (info.selectionText || '').trim();
   if (!text) return;
 
   chrome.tabs.sendMessage(tab.id, { type: 'SHOW_BUBBLE', text }).catch(() => {
-    // Content script unavailable — copy to clipboard via offscreen or notification
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon48.png',
@@ -171,6 +185,16 @@ chrome.runtime.onConnect.addListener((port) => {
 // --- API Key Validation ---
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'CAPTURE_SCREENSHOT') {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        sendResponse({ error: 'Screenshot failed' });
+      } else {
+        sendResponse({ dataUrl });
+      }
+    });
+    return true; // async sendResponse
+  }
   if (msg.type === 'OPEN_OPTIONS') {
     chrome.runtime.openOptionsPage();
     return;

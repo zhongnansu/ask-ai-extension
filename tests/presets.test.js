@@ -8,7 +8,7 @@ import {
 } from '../presets.js';
 
 describe('PRESETS structure', () => {
-  const expectedTypes = ['code', 'foreign', 'error', 'email', 'data', 'math', 'long', 'default'];
+  const expectedTypes = ['code', 'foreign', 'error', 'email', 'data', 'math', 'long', 'default', 'image'];
 
   it('has all eight content types', () => {
     for (const type of expectedTypes) {
@@ -247,5 +247,13 @@ describe('getAllPresetsForType', () => {
 
   it('throws when given an invalid content type', () => {
     expect(() => getAllPresetsForType('invalid')).toThrow();
+  });
+
+  it('returns image presets for image type', () => {
+    const suggested = getSuggestedPresetsForType('image', null);
+    const labels = suggested.map(p => p.label);
+    expect(labels).toContain('Explain this image');
+    expect(labels).toContain('Extract text from image');
+    expect(labels).toContain('Translate text in image');
   });
 });

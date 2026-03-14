@@ -179,7 +179,8 @@ describe('event-driven behavior', () => {
     expect(showBubbleWithPresets).toHaveBeenCalledWith(
       expect.objectContaining({ top: 100, bottom: 120 }),
       'test text',
-      document.body
+      document.body,
+      undefined
     );
   });
 });

@@ -3,7 +3,7 @@ import { validatePayload, verifyHmac } from './validate.js';
 import { checkRateLimit, incrementCounters } from './rate-limit.js';
 import { createChatStream } from './openai.js';
 
-const MAX_BODY_SIZE = 10240; // 10KB
+const MAX_BODY_SIZE = 2097152; // 2MB
 
 function getCorsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
@@ -59,7 +59,7 @@ export default {
     }
 
     if (bodyText.length > MAX_BODY_SIZE) {
-      return jsonResponse({ error: 'Request body too large (max 10KB)' }, 413, corsHeaders);
+      return jsonResponse({ error: 'Request body too large (max 2MB)' }, 413, corsHeaders);
     }
 
     let body;

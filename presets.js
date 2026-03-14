@@ -210,6 +210,14 @@ const PRESETS = {
       { label: 'Explain simply', instruction: 'Explain the following in simple terms' },
     ],
     all: []
+  },
+  image: {
+    suggested: [
+      { label: 'Explain this image', instruction: 'Explain this image' },
+      { label: 'Extract text from image', instruction: 'Extract all text from this image' },
+      { label: 'Translate text in image', instruction: 'Translate any text in this image to English' },
+    ],
+    all: []
   }
 };
 

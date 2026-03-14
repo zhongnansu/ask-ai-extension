@@ -5,6 +5,66 @@ const TIMESTAMP_WINDOW_SECONDS = 300; // 5 minutes
 
 const validRoles = ['system', 'user', 'assistant'];
 
+const MAX_IMAGES_PER_MESSAGE = 2;
+
+function validateContentItem(item) {
+  if (!item || typeof item !== 'object' || !item.type) {
+    return { valid: false, error: 'Invalid content item' };
+  }
+  if (item.type === 'text') {
+    if (typeof item.text !== 'string') {
+      return { valid: false, error: 'Content item text must be a string' };
+    }
+    return { valid: true };
+  }
+  if (item.type === 'image_url') {
+    if (!item.image_url || typeof item.image_url.url !== 'string') {
+      return { valid: false, error: 'Invalid image_url item' };
+    }
+    const url = item.image_url.url;
+    if (!url.startsWith('https:') && !url.startsWith('data:image/')) {
+      return { valid: false, error: 'Image URL must start with https: or data:image/' };
+    }
+    return { valid: true };
+  }
+  return { valid: false, error: `Unknown content type: ${item.type}` };
+}
+
+function validateContent(content) {
+  if (typeof content === 'string') {
+    return { valid: true };
+  }
+  if (Array.isArray(content)) {
+    let imageCount = 0;
+    for (const item of content) {
+      const result = validateContentItem(item);
+      if (!result.valid) return result;
+      if (item.type === 'image_url') imageCount++;
+    }
+    if (imageCount > MAX_IMAGES_PER_MESSAGE) {
+      return { valid: false, error: `Too many images (max ${MAX_IMAGES_PER_MESSAGE} per message)` };
+    }
+    return { valid: true };
+  }
+  return { valid: false, error: 'Message content must be a string or array' };
+}
+
+function getContentChars(messages) {
+  let total = 0;
+  for (const m of messages) {
+    if (typeof m.content === 'string') {
+      total += m.content.length;
+    } else if (Array.isArray(m.content)) {
+      for (const item of m.content) {
+        if (item.type === 'text') {
+          total += (item.text || '').length;
+        }
+      }
+    }
+  }
+  return total;
+}
+
 export function validatePayload(body) {
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Invalid request body' };
@@ -24,12 +84,13 @@ export function validatePayload(body) {
     if (!validRoles.includes(m.role)) {
       return { valid: false, error: `Invalid role: ${m.role}` };
     }
-    if (typeof m.content !== 'string') {
-      return { valid: false, error: 'Message content must be a string' };
+    const contentResult = validateContent(m.content);
+    if (!contentResult.valid) {
+      return contentResult;
     }
   }
 
-  const totalChars = messages.reduce((sum, m) => sum + (m.content || '').length, 0);
+  const totalChars = getContentChars(messages);
   if (totalChars > MAX_TOTAL_CHARS) {
     return { valid: false, error: `Content too long (max ${MAX_TOTAL_CHARS} chars)` };
   }

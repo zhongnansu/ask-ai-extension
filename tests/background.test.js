@@ -52,7 +52,7 @@ describe('context menu registration', () => {
     expect(mockCreate).toHaveBeenCalledWith({
       id: 'dobby-ai',
       title: 'Dobby AI',
-      contexts: ['selection'],
+      contexts: ['selection', 'image'],
     });
   });
 });
