@@ -200,4 +200,80 @@ describe('bubble.js', () => {
       expect(result).toContain('<li>item one</li>');
     });
   });
+
+  describe('renderMarkdown images', () => {
+    it('renders https image markdown as img tag', () => {
+      const result = renderMarkdown('![diagram](https://example.com/img.png)');
+      expect(result).toContain('<img class="response-img"');
+      expect(result).toContain('src="https://example.com/img.png"');
+      expect(result).toContain('alt="diagram"');
+    });
+
+    it('rejects non-https image URLs', () => {
+      const result = renderMarkdown('![pic](http://example.com/img.png)');
+      expect(result).not.toContain('<img');
+      expect(result).toContain('![pic]');
+    });
+
+    it('rejects javascript: URLs', () => {
+      const result = renderMarkdown('![xss](javascript:alert(1))');
+      expect(result).not.toContain('<img');
+    });
+
+    it('rejects data: URLs', () => {
+      const result = renderMarkdown('![xss](data:text/html,<script>alert(1)</script>)');
+      expect(result).not.toContain('<img');
+    });
+
+    it('escapes alt text to prevent XSS', () => {
+      const result = renderMarkdown('![<script>xss</script>](https://example.com/img.png)');
+      expect(result).toContain('alt="&lt;script&gt;xss&lt;/script&gt;"');
+      expect(result).not.toContain('alt="<script>');
+    });
+
+    it('renders multiple images', () => {
+      const text = '![a](https://example.com/1.png)\n![b](https://example.com/2.png)';
+      const result = renderMarkdown(text);
+      expect((result.match(/<img/g) || []).length).toBe(2);
+    });
+
+    it('mixes images with other markdown', () => {
+      const text = '**bold** and ![img](https://example.com/pic.png) and `code`';
+      const result = renderMarkdown(text);
+      expect(result).toContain('<strong>bold</strong>');
+      expect(result).toContain('<img class="response-img"');
+      expect(result).toContain('<code>code</code>');
+    });
+  });
+
+  describe('image lightbox', () => {
+    it('opens lightbox overlay when image is clicked', () => {
+      showBubble({ bottom: 100, left: 50, right: 250 }, []);
+      const container = _getBubbleContainer();
+      const shadow = container.shadowRoot;
+      const responseText = shadow.querySelector('.response-text');
+      responseText.innerHTML = '<img class="response-img" src="https://example.com/img.png" alt="test">';
+
+      const img = shadow.querySelector('.response-img');
+      img.click();
+
+      const lightbox = shadow.querySelector('.img-lightbox');
+      expect(lightbox).not.toBeNull();
+      expect(lightbox.querySelector('img').src).toBe('https://example.com/img.png');
+    });
+
+    it('closes lightbox when overlay is clicked', () => {
+      showBubble({ bottom: 100, left: 50, right: 250 }, []);
+      const container = _getBubbleContainer();
+      const shadow = container.shadowRoot;
+      const responseText = shadow.querySelector('.response-text');
+      responseText.innerHTML = '<img class="response-img" src="https://example.com/img.png" alt="test">';
+
+      shadow.querySelector('.response-img').click();
+      expect(shadow.querySelector('.img-lightbox')).not.toBeNull();
+
+      shadow.querySelector('.img-lightbox').click();
+      expect(shadow.querySelector('.img-lightbox')).toBeNull();
+    });
+  });
 });
