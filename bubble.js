@@ -68,7 +68,7 @@ function renderMarkdown(text) {
   escaped = escaped.replace(/%%IMAGE_(\d+)%%/g, (_, i) => {
     const img = images[parseInt(i)];
     if (!img) return '';
-    return `<img class="response-img" src="${img.url}" alt="${img.alt}" loading="lazy">`;
+    return `<img class="response-img" src="${img.url}" alt="${img.alt}" loading="lazy" onerror="this.style.display='none'">`;
   });
   return escaped;
 }
