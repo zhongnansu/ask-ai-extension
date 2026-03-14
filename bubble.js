@@ -20,18 +20,39 @@ function detectTheme() {
 }
 
 function escapeHtml(text) {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function isValidImageUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function renderMarkdown(text) {
-  // Escape HTML first to prevent XSS
-  let escaped = escapeHtml(text);
-  // Extract code blocks before other transforms (preserve newlines inside)
+  // Extract code blocks first so their contents are not processed
   const codeBlocks = [];
-  escaped = escaped.replace(/```([\s\S]*?)```/g, (_, code) => {
+  let processed = text.replace(/```([\s\S]*?)```/g, (_, code) => {
     codeBlocks.push(code);
     return `%%CODEBLOCK_${codeBlocks.length - 1}%%`;
   });
+
+  // Extract images before escaping (they need real <img> tags)
+  const images = [];
+  processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    if (isValidImageUrl(url)) {
+      images.push({ alt: escapeHtml(alt), url: escapeHtml(url) });
+      return `%%IMAGE_${images.length - 1}%%`;
+    }
+    return `![${alt}](${url})`;
+  });
+
+  // Escape HTML to prevent XSS
+  let escaped = escapeHtml(processed);
   // Inline transforms
   escaped = escaped
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -40,7 +61,14 @@ function renderMarkdown(text) {
     .replace(/\n/g, '<br>');
   // Re-insert code blocks with preserved formatting
   escaped = escaped.replace(/%%CODEBLOCK_(\d+)%%/g, (_, i) => {
-    return '<pre><code>' + codeBlocks[parseInt(i)] + '</code></pre>';
+    const block = codeBlocks[parseInt(i)];
+    return block != null ? '<pre><code>' + escapeHtml(block) + '</code></pre>' : '';
+  });
+  // Re-insert images
+  escaped = escaped.replace(/%%IMAGE_(\d+)%%/g, (_, i) => {
+    const img = images[parseInt(i)];
+    if (!img) return '';
+    return `<img class="response-img" src="${img.url}" alt="${img.alt}" loading="lazy">`;
   });
   return escaped;
 }
@@ -146,6 +174,32 @@ function getStyles(theme) {
     }
     .response-text pre code { background: none; padding: 0; }
     .response-text strong { font-weight: 600; }
+    .response-text .response-img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+      display: block;
+      transition: opacity 0.15s;
+    }
+    .response-text .response-img:hover { opacity: 0.85; }
+    .img-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .img-lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 8px;
+      object-fit: contain;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
     .cursor {
       display: inline-block;
       width: 2px;
@@ -340,6 +394,25 @@ function wireCommonEvents(shadow) {
       const question = e.target.value.trim();
       e.target.value = '';
       handleFollowUp(shadow, question);
+    }
+  });
+  // Image lightbox via event delegation
+  shadow.querySelector('.bubble-body').addEventListener('click', (e) => {
+    if (e.target.classList.contains('response-img')) {
+      const overlay = document.createElement('div');
+      overlay.className = 'img-lightbox';
+      overlay.tabIndex = 0;
+      const img = document.createElement('img');
+      img.src = e.target.src;
+      img.alt = e.target.alt;
+      overlay.appendChild(img);
+      const dismiss = () => overlay.remove();
+      overlay.addEventListener('click', dismiss);
+      overlay.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') { ev.stopPropagation(); dismiss(); }
+      });
+      shadow.appendChild(overlay);
+      overlay.focus();
     }
   });
 }
